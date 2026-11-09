@@ -20,7 +20,7 @@ fth verify-plan SunCamRef/test/int/plan.json --tests SunCamRef/test/int   # plan
 python -m pytest SunCamRef/test/kat                                       # helper known-answer tests
 ```
 
-Bench — campaign-root layout (`croot/`): `uut/` = this repository (submodules checked out, `cd uut/SunCamRef && fprime-util generate && fprime-util build`), `harness/` = the fth checkout, the fth venv active, `fprime-gds`/`fprime-cli` on `PATH`.
+Bench — campaign-root layout (`croot/`): `uut/` = this repository (submodules checked out, `cd uut/SunCamRef && fprime-util generate && fprime-util build`; after every later pull `rm -f build-fprime-*/versions/version.*` before `fprime-util build` — fprime regenerates `Svc.Version`'s describe strings only when those files are missing, and `fth manifest` rejects an image whose PROJECT version is not the current `uut` describe), `harness/` = the fth checkout, the fth venv active, `fprime-gds`/`fprime-cli` on `PATH`.
 
 ```sh
 cd croot
