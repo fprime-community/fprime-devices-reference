@@ -30,6 +30,6 @@
     "collect_s": 30
   },
   "notes": "Relative paths only; run from the campaign root on the bench (Raspberry Pi 5 'devin'), uut/ = this repository with submodules, built natively (fprime-util generate && fprime-util build in uut/SunCamRef). flash stops the previous instance by its recorded PID ({rundir}/SunCamRef.pid) and installs {image} as {rundir}/SunCamRef; the gds line starts the new instance (cwd {rundir}: PrmDb.dat and DpCat live there) together with fprime-gds and stops both when fth ends the run (fth requires {uart} to be free between flash and gds), logging install/read-back sha256 to {rundir}/flash.log; the USB serial of the FTDI cable (udevadm ID_SERIAL_SHORT of {uart}) is the bench serial fth records. dump copies the running binary to {readback} and the DpWriter directory {rundir}/DpCat into dp/ beside it (record/raw/dp/). reset restarts by recorded PID and settles >= 3 s. Only /dev/ttyUSB0 (the FTDI RS-422 cable) and the recorded PID are touched; never pkill/pgrep by pattern.",
-  "boot_event": "CdhCore.version.ProjectVersion",
+  "boot_event": "SunCamRef.uartDriver.PortOpened",
   "collect": "bash {scripts}/collect.sh {rundir} {logs}"
 }
