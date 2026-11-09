@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# flash: install the image as the running SunCamRef and (re)start it by recorded PID.
+# flash: stop the running SunCamRef by its recorded PID and install the image as $rundir/SunCamRef. The new
+# instance is started by gds.sh (fth starts the GDS line right after flash and requires the UART to be free then;
+# the deployment process holds the camera UART for as long as the GDS link lives).
 # usage: flash.sh <image> <rundir> <uart> <gds_host> <gds_port>
 source "$(dirname "$0")/common.sh"
 image="$1"; rundir="$2"
@@ -16,4 +18,4 @@ install -m 0755 "$image" "$rundir/SunCamRef"
     echo "$(date -u +%FT%TZ) install sha256 $(sha256sum "$image" | cut -d' ' -f1) ($image)"
     echo "$(date -u +%FT%TZ) readback sha256 $(sha256sum "$rundir/SunCamRef" | cut -d' ' -f1) ($rundir/SunCamRef)"
 } | tee -a "$rundir/flash.log"
-start_suncamref "$rundir" "$3" "$4" "$5"
+echo "SunCamRef installed; started with the GDS line (gds.sh) as $rundir/SunCamRef -a $4 -p $5 -u $3"
