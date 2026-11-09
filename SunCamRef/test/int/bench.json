@@ -14,7 +14,7 @@
   "dump": "bash {scripts}/dump.sh {readback} {rundir} {logs}",
   "reset": "bash {scripts}/reset.sh {rundir} {uart} {gds_host} {gds_port}",
   "gds": "bash {scripts}/gds.sh {dictionary} {gds_host} {gds_port} {zmq} {logs}",
-  "recorder": "fprime-cli events --dictionary {dictionary} --zmq-transport {zmq} --logs {logs}",
+  "recorder": "python3 {scripts}/recorder.py {dictionary} {zmq} {logs}",
   "send": "bash {scripts}/send.sh {dictionary} {zmq} {logs} {command} {args}",
   "timeouts": {
     "flash_s": 120,
