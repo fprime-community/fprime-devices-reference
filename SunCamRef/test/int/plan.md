@@ -81,7 +81,7 @@ Setup:     READY, mode SD, exposure 672.
 Procedure: MARK(230); bracket (2 suncam samples); sunCamMgr.CAPTURE(SLOT_3, ON); wait(CaptureComplete, 10 s); sunCamMgr.CAPTURE(SLOT_0, OFF); wait(CaptureComplete, 10 s); bracket (2 suncam samples); MARK(231).
 Window:    Marker(id=230) … Marker(id=231)
 Pass rule: named checks declared in the integration test (test_L2_3).
-Evidence:  Two CaptureComplete events (0-byte ACKs, §7.4.5 response figure: the exposure argument is the component's last pushed value, 672); ImagesCaptured +2.
+Evidence:  Two CaptureComplete events (0-byte ACKs, §7.4.5 response figure: the exposure argument is the Exposure channel value, 672); ImagesCaptured +2.
 Planted faults:none
 
 ID:        L2-4
@@ -197,7 +197,7 @@ Planted faults:none
 ID:        L6-1
 Title:     Negative control: READY-only commands refused while NOT_SETUP
 Purpose:   Negative control: READY-only commands refused while NOT_SETUP
-Covers:    REQ-SunCamMgr-002, REQ-SunCamMgr-007, REQ-SunCamMgr-008, REQ-SunCamMgr-026
+Covers:    REQ-SunCamMgr-002, REQ-SunCamMgr-007, REQ-SunCamMgr-008, REQ-SunCamMgr-026, REQ-SunCamMgr-036
 Setup:     READY (after L5-3); W1 puts the component in NOT_SETUP.
 Procedure: MARK(610); bracket (2 suncam samples); sunCamMgr.SLEEP; wait(SleepEntered, 5 s); bracket (2 suncam samples); MARK(612); bracket (2 suncam samples); sunCamMgr.PING(MCU); wait(PingReply, 5 s); sunCamMgr.CAPTURE(SLOT_0, OFF); sunCamMgr.DOWNLOAD(SLOT_0, PREVIEW); sunCamMgr.READ_REGISTER(12306); sunCamMgr.DOWNLOAD_ABORT; wait(2 s); sunCamMgr.PING(MCU); wait(PingReply, 5 s); bracket (2 suncam samples); MARK(611).
 Window:    W1 = Marker(id=610) … Marker(id=612); W = Marker(id=612) … Marker(id=611)
@@ -230,7 +230,7 @@ Planted faults:sleep_before_final
 ID:        L8-1
 Title:     Camera power-on (human step) → set-up
 Purpose:   Camera power-on (human step) → set-up
-Covers:    REQ-SunCamMgr-003, REQ-SunCamMgr-020, REQ-SunCamMgr-034
+Covers:    REQ-SunCamMgr-003, REQ-SunCamMgr-020, REQ-SunCamMgr-034, REQ-SunCamMgr-036
 Setup:     READY (after L7-1); W1 puts the component in NOT_SETUP with the camera still on; the human step then power-cycles the camera.
 Procedure: MARK(810); bracket (2 suncam samples); sunCamMgr.SLEEP; wait(SleepEntered, 5 s); bracket (2 suncam samples); MARK(812); human step (runner prompt: human_step); wait(3 s); sunCamMgr.SETUP_CAMERA; wait(SetupComplete, 15 s); bracket (2 suncam samples); MARK(811).
 Window:    W1 = Marker(id=810) … Marker(id=812); W = Marker(id=812) … Marker(id=811)
@@ -272,9 +272,10 @@ Planted faults:none
 | REQ-SunCamMgr-029 | waived: Unit Test | queue-full hooks are unreachable at 10 Hz / 115200 baud without a flood tool |
 | REQ-SunCamMgr-030 | L0-1, L0-2 (period: UT) | exact tick period is a unit test; ≥ 2 samples of every suncam channel in a quiet window (L0-1, L0-2: nothing changes) is the bench proof of the periodic write |
 | REQ-SunCamMgr-031 | L5-3 (single bench test, never planted) + UT | refused push and refused set-up step on the bench; boundary values 2/960/961 in UT |
-| REQ-SunCamMgr-033 | L2-3, L2-10 | 0-byte Capture ACK (Datasheet Rev 1.3 §7.4.5 response figure): CaptureComplete.exposure = last pushed/read-back 672 (L2-3 live capture, L2-10 four SD re-captures); the 2-byte ACK path is unit-tested |
+| REQ-SunCamMgr-033 | L2-3, L2-10 | 0-byte Capture ACK (Datasheet Rev 1.3 §7.4.5 response figure): CaptureComplete.exposure = the Exposure channel value, 672 (L2-3 live capture, L2-10 four SD re-captures) |
 | REQ-SunCamMgr-034 | L8-1 (run-for-record only, tolerance side) + UT (detection side) | detection side (READY) unit test; tolerance side L8-1 (run-for-record only) — the camera's USB power cannot be switched by software (uhubctl sweep found nothing), so the human powers the camera on at the runner's prompt |
 | REQ-SunCamMgr-035 | waived: Unit Test | HD slot rule (SLOT_0 only; CommandRejected HD_SLOT otherwise) — testDownloadHdFourSlots; L2-10 exercises the accepted SLOT_0 path only |
+| REQ-SunCamMgr-036 | L6-1, L8-1 | CAPTURE refused NOT_READY while NOT_SETUP (L6-1: no frame reaches the camera, RXV unchanged); L8-1: NOT_SETUP across the camera power cycle, Capture only after set-up — testNoCaptureWhenNotSetup |
 
 ## 5 Metrics
 - L2-1: t(event sunCamMgr.SetupComplete(mode=SD, exposure=672)) - t(sunCamMgr.SETUP_CAMERA sent) <= 12 s
@@ -290,6 +291,7 @@ Generated from `planted_faults.py` planted fault declarations (`fth planted-faul
 - HD FULL download: four slots of the same 480-line shape as SD FULL (L2-5), 1920 lines ≈ 2 min; the bench exercises the HD PREVIEW four-quadrant product (L2-10). ZOOM mode: framing identical to SD, not run on the bench (the FOV crop is the camera's). Memory Status and camera-side parameter errors are not available on this hardware (SDD §Hardware notes) and are not tested. A rejected HD slot (REQ-035) is unit-tested only. Camera error reply (REQ-019): no documented command this unit answers with an error reply (SDD §Hardware notes, Camera-side parameter validation), so REQ-019 is Unit Test only and has no bench test.
 
 ## 8 Decision log
+24. 2026-11-09 designer — HUMAN GATE-4 nits: the Capture ACK is 0-byte only (REQ-013; any other payload length is MALFORMED → ReplyTimeout → EXECUTION_ERROR), REQ-033 reports the Exposure channel value; REQ-036 "Capture shall be sent only while READY" mapped to L6-1 (CAPTURE NOT_READY, RXV unchanged) and L8-1; block diagram and unit-test list (testNoCaptureWhenNotSetup) follow. No test procedure or check changed.
 23. 2026-11-09 designer — HUMAN RULING: one human-in-the-loop run-for-record test. L8-1 added: SLEEP to NOT_SETUP, human power-cycles the camera at the runner's prompt (`human_step`, `run_in: ["rfr"]`; fth v0.1.4 fields), then SETUP_CAMERA; checks the one 21-byte FrameDiscarded(MALFORMED, 21), no CameraRestarted, SetupComplete(SD, 672), READY. START is marked before the human step so the power-on line falls inside the window. Covers REQ-003/-020/-034 (tolerance side); REQ-034 detection side stays unit test. Deferred for all but the run-for-record.
 22. 2026-11-09 designer — reopen-review fixes: L6-1 loses the MEMORY_STATUS step (NOT_READY 3, OpCodeError 4); L2-10 asserts the REQ-027 exposure re-push after each mode change (SettingApplied(EXPOSURE, 672) 2, ExposureReadback 2); REQ-019 verification Unit Test; REQ-034 is now camera-restart detection (power-on line while READY → NOT_SETUP), waived on the bench pending a software power-cycle port; rationales cite SDD §Hardware notes rows or the design record (gate package) + runs/probes-5.log instead of bare H-numbers.
 21. 2026-11-09 designer — probes-5 applied: Mode {SLEEP 0, SD 1, ZOOM 2, HD 3} (the earlier "HD" probes had sent mode byte 2 = Zoom); slots are 0–3 in every frame (index 4 aliases slot 1 — never emitted), so every SLOT_n in this plan is renumbered n−1; HD (mode 3) is one 1280×960 image across slots 0..3 as quadrants, so L2-10 becomes the HD capture + PREVIEW download of the four-quadrant product (192 records, 128×96 PNG, slot-tagged quadrant placement in `assemble`), DOWNLOAD/CAPTURE in HD with SLOT_0 only (REQ-035, unit test); exposure resets on every mode change (REQ-027 rationale); L5-2 stays dropped; `memory_slot_exposure` helper removed with MemorySlots. 18 tests, 5 planted faults (fails strings follow the renumbering).
