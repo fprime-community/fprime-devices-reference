@@ -4,6 +4,11 @@
 source "$(dirname "$0")/common.sh"
 image="$1"; rundir="$2"
 [ -f "$image" ] || { echo "image not found: $image"; exit 1; }
+[ -e "$3" ] || { echo "uart not present: $3"; exit 1; }
+# The bench identity fth records as the "debugger serial": the USB serial of the FTDI RS-422 cable the camera hangs on
+serial=$(udevadm info -q property -n "$3" 2>/dev/null | sed -n 's/^ID_SERIAL_SHORT=//p')
+[ -n "$serial" ] || serial=$(basename "$3" | sed -E 's/.*_([A-Za-z0-9]+)-if[0-9]+-port[0-9]+$/\1/')
+echo "FTDI serial = $serial ($(readlink -f "$3"))"
 mkdir -p "$rundir"
 stop_recorded "$rundir"
 install -m 0755 "$image" "$rundir/SunCamRef"
