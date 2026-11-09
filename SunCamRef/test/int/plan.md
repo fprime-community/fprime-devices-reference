@@ -3,10 +3,11 @@
 ## 0 Scope
 - UUT: `KissCam.SunCamMgr` (fprime-community/fprime-devices, `fprime-devices/KissCam`), SHA recorded in the manifest at stage 2.
 - Deployment: `SunCamRef` in fprime-community/fprime-devices-reference (human-directed test deployment; the repository was empty): CdhCore + ComFprime (TCP to the GDS on the Pi) + DataProducts + FileHandling subtopologies, Svc.Version, Svc.PrmDb, rate groups 1/10 Hz, `uartDriver: Drv.PosixUartDriver` on /dev/ttyUSB0 115200 8N1, `sunCamMgr: KissCam.SunCamMgr` driven by the 10 Hz rate group.
-- Bench: Raspberry Pi 5 `devin` (aarch64, Debian), KissCAM V2 bench unit powered on, FTDI USB-RS422 cable FTAQMGVF → /dev/ttyUSB0; foreign /dev/ttyACM1-3 never touched; no power control.
+- Bench: Raspberry Pi 5 `devin` (aarch64, Debian), KissCAM V2 bench unit powered on, FTDI USB-RS422 cable FTAQMGVF → /dev/ttyUSB0; foreign /dev/ttyACM1-3 never touched; no software power control (the camera's USB power port cannot be switched; human power cycle in L8-1 only).
 - Camera counters (RXV, RXF, uptime) persist across FSW restarts and runs — never asserted absolutely, only as deltas (mod 256) or ignored.
 - Ground system: fprime-gds (harness skill default); recorder fprime-cli events/channels.
-- Order: L0-1, L0-2, L2-1 … L2-10, L3-1, L5-1, L5-3, L6-1, L6-2, L7-1; every `setup` names the state the previous test leaves.
+- Order: L0-1, L0-2, L2-1 … L2-10, L3-1, L5-1, L5-3, L6-1, L6-2, L7-1, L8-1; every `setup` names the state the previous test leaves.
+- L8-1 is the one human-in-the-loop test (`run_in: ["rfr"]`, `human_step`): deferred in dry runs and rehearsal, executed only in the run-for-record with the human step prompted by the runner.
 - Out of scope: WRITE_REGISTER (excluded by the request), camera power sequencing, HD FULL download on the bench (1920 lines, 4 × L2-5), datasheet features the unit does not implement (Memory Status, 80×60 preview, camera-side parameter errors — SDD §Hardware notes), downlink of products (DpCatalog/FileDownlink are deployment services).
 
 ## 1 Entry gates
@@ -18,7 +19,7 @@
 - §7 refresh at stage 2 confirms on the bench: event text/enum rendering against the SunCamRef dictionary; slot memory intact across a mode change (L2-9); HD capture duration and the 192-line HD preview product (L2-10); HD download reply mode byte 03 → header imageMode HD; all four slots re-captured in SD after the HD capture (L2-10); download durations (L2-4/L2-5).
 
 ## 2 Test levels
-L0 provenance/feasibility · L2 functional · L3 persistence/reset · L5 fault paths · L6 negative controls · L7 final state for independent verification.
+L0 provenance/feasibility · L2 functional · L3 persistence/reset · L5 fault paths · L6 negative controls · L7 final state for independent verification · L8 human-in-the-loop (run-for-record only).
 
 ## 3 Test entries
 
@@ -226,12 +227,23 @@ Pass rule: named checks declared in the integration test (test_L7_1).
 Evidence:  The product written during this window (not any earlier one) decodes to the test pattern; slot 3 is left holding the pattern for the independent read.
 Planted faults:sleep_before_final
 
+ID:        L8-1
+Title:     Camera power-on (human step) → set-up
+Purpose:   Camera power-on (human step) → set-up
+Covers:    REQ-SunCamMgr-003, REQ-SunCamMgr-020, REQ-SunCamMgr-034
+Setup:     READY (after L7-1); W1 puts the component in NOT_SETUP with the camera still on; the human step then power-cycles the camera.
+Procedure: MARK(810); bracket (2 suncam samples); sunCamMgr.SLEEP; wait(SleepEntered, 5 s); bracket (2 suncam samples); MARK(812); human step (runner prompt: human_step); wait(3 s); sunCamMgr.SETUP_CAMERA; wait(SetupComplete, 15 s); bracket (2 suncam samples); MARK(811).
+Window:    W1 = Marker(id=810) … Marker(id=812); W = Marker(id=812) … Marker(id=811)
+Pass rule: named checks declared in the integration test (test_L8_1).
+Evidence:  Human-in-the-loop: one power-on line discarded while NOT_SETUP, no CameraRestarted, then a complete set-up to READY; executed in the run-for-record only (the runner prompts the human step).
+Planted faults:none
+
 ## 4 Traceability
 | REQ | Tests | Note |
 |---|---|---|
 | REQ-SunCamMgr-001 | L2-1, L2-3, L2-4, L7-1 |  |
 | REQ-SunCamMgr-002 | L0-1, L5-3, L6-1 | negative control: no frame before SETUP_CAMERA — UUT Exchanges and the camera's own RXV (L6-1) |
-| REQ-SunCamMgr-003 | L2-1, L3-1 |  |
+| REQ-SunCamMgr-003 | L2-1, L3-1 + L8-1 (run-for-record only: set-up after a camera power cycle) |  |
 | REQ-SunCamMgr-004 | L5-3 (single bench test, never planted) + UT | local set-up failure (out-of-range EXPOSURE at SET_EXPOSURE) on the bench; camera-side step failures in UT |
 | REQ-SunCamMgr-005 | L2-1, L3-1 | L2-1 W2 re-runs SETUP_CAMERA while READY |
 | REQ-SunCamMgr-006 | L2-2, L2-7 |  |
@@ -248,7 +260,7 @@ Planted faults:sleep_before_final
 | REQ-SunCamMgr-017 | L5-1 (single bench test, never planted) + UT | commanded abort on the bench; LINE_FAILED/SEND_FAILED/PRODUCT_FULL aborts in UT |
 | REQ-SunCamMgr-018 | waived: Unit Test | reply timeout needs a silent camera: no power control |
 | REQ-SunCamMgr-019 | waived: Unit Test | no documented command yields an error frame on this unit (SDD §Hardware notes, Camera-side parameter validation), so no bench stimulus; 0xFF replies are unit-tested (testCameraErrorReply) |
-| REQ-SunCamMgr-020 | waived: Unit Test | stray/malformed bytes need a second writer on the bus; the power-on line (SDD §Hardware notes, Power-on line) needs a camera power cycle (human only) — testMalformedAndStrayFrames, testPowerOnBanner |
+| REQ-SunCamMgr-020 | L8-1 (run-for-record only) + UT | the power-on line while NOT_SETUP is exercised by L8-1 (human power cycle, run-for-record only); stray/malformed bytes need a second writer on the bus — testMalformedAndStrayFrames, testPowerOnBanner |
 | REQ-SunCamMgr-021 | waived: Unit Test | mode mismatch while READY needs a camera power-cycle |
 | REQ-SunCamMgr-022 | L2-1, L2-2, L2-3 |  |
 | REQ-SunCamMgr-023 | L2-1, L2-6, L2-9 |  |
@@ -261,7 +273,7 @@ Planted faults:sleep_before_final
 | REQ-SunCamMgr-030 | L0-1, L0-2 (period: UT) | exact tick period is a unit test; ≥ 2 samples of every suncam channel in a quiet window (L0-1, L0-2: nothing changes) is the bench proof of the periodic write |
 | REQ-SunCamMgr-031 | L5-3 (single bench test, never planted) + UT | refused push and refused set-up step on the bench; boundary values 2/960/961 in UT |
 | REQ-SunCamMgr-033 | L2-3, L2-10 | 0-byte Capture ACK (Datasheet Rev 1.3 §7.4.5 response figure): CaptureComplete.exposure = last pushed/read-back 672 (L2-3 live capture, L2-10 four SD re-captures); the 2-byte ACK path is unit-tested |
-| REQ-SunCamMgr-034 | waived: Unit Test | camera-restart detection needs a camera power cycle while READY — on this bench the human only; the hub port for a software power cycle is being identified and, if it lands, a system test is added — testPowerOnBanner |
+| REQ-SunCamMgr-034 | L8-1 (run-for-record only, tolerance side) + UT (detection side) | detection side (READY) unit test; tolerance side L8-1 (run-for-record only) — the camera's USB power cannot be switched by software (uhubctl sweep found nothing), so the human powers the camera on at the runner's prompt |
 | REQ-SunCamMgr-035 | waived: Unit Test | HD slot rule (SLOT_0 only; CommandRejected HD_SLOT otherwise) — testDownloadHdFourSlots; L2-10 exercises the accepted SLOT_0 path only |
 
 ## 5 Metrics
@@ -278,6 +290,7 @@ Generated from `planted_faults.py` planted fault declarations (`fth planted-faul
 - HD FULL download: four slots of the same 480-line shape as SD FULL (L2-5), 1920 lines ≈ 2 min; the bench exercises the HD PREVIEW four-quadrant product (L2-10). ZOOM mode: framing identical to SD, not run on the bench (the FOV crop is the camera's). Memory Status and camera-side parameter errors are not available on this hardware (SDD §Hardware notes) and are not tested. A rejected HD slot (REQ-035) is unit-tested only. Camera error reply (REQ-019): no documented command this unit answers with an error reply (SDD §Hardware notes, Camera-side parameter validation), so REQ-019 is Unit Test only and has no bench test.
 
 ## 8 Decision log
+23. 2026-11-09 designer — HUMAN RULING: one human-in-the-loop run-for-record test. L8-1 added: SLEEP to NOT_SETUP, human power-cycles the camera at the runner's prompt (`human_step`, `run_in: ["rfr"]`; fth v0.1.4 fields), then SETUP_CAMERA; checks the one 21-byte FrameDiscarded(MALFORMED, 21), no CameraRestarted, SetupComplete(SD, 672), READY. START is marked before the human step so the power-on line falls inside the window. Covers REQ-003/-020/-034 (tolerance side); REQ-034 detection side stays unit test. Deferred for all but the run-for-record.
 22. 2026-11-09 designer — reopen-review fixes: L6-1 loses the MEMORY_STATUS step (NOT_READY 3, OpCodeError 4); L2-10 asserts the REQ-027 exposure re-push after each mode change (SettingApplied(EXPOSURE, 672) 2, ExposureReadback 2); REQ-019 verification Unit Test; REQ-034 is now camera-restart detection (power-on line while READY → NOT_SETUP), waived on the bench pending a software power-cycle port; rationales cite SDD §Hardware notes rows or the design record (gate package) + runs/probes-5.log instead of bare H-numbers.
 21. 2026-11-09 designer — probes-5 applied: Mode {SLEEP 0, SD 1, ZOOM 2, HD 3} (the earlier "HD" probes had sent mode byte 2 = Zoom); slots are 0–3 in every frame (index 4 aliases slot 1 — never emitted), so every SLOT_n in this plan is renumbered n−1; HD (mode 3) is one 1280×960 image across slots 0..3 as quadrants, so L2-10 becomes the HD capture + PREVIEW download of the four-quadrant product (192 records, 128×96 PNG, slot-tagged quadrant placement in `assemble`), DOWNLOAD/CAPTURE in HD with SLOT_0 only (REQ-035, unit test); exposure resets on every mode change (REQ-027 rationale); L5-2 stays dropped; `memory_slot_exposure` helper removed with MemorySlots. 18 tests, 5 planted faults (fails strings follow the renumbering).
 20. 2026-11-09 designer — SDD ruling applied: MEMORY_STATUS removed from the component (unimplemented feature, Rev 1.3 §7.4.3), so L5-2 (its CameraError stimulus) is dropped; REQ-019 becomes Unit Test + Inspection — the unit answers every documented command with a normal frame (H4) and no other camera-error stimulus is known (candidate: Capture while in Sleep, error type 3, to be probed). REQ-032 (withdrawn) removed from the requirements map; REQ-034 (power-on line tolerance, unit test only) added. SDD §Not supported on our hardware is now §Hardware notes; citations follow. 18 tests, 5 planted faults unchanged.
