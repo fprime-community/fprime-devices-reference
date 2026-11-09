@@ -1,0 +1,6 @@
+seed-history
+coverage/
+build-fprime-automatic-*/
+fprime-venv/
+__pycache__/
+*.pyc
