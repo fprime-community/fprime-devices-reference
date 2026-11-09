@@ -363,3 +363,62 @@ def test_pattern_kat_on_the_real_bench_product(plan):
     ok, text = g["test_pattern_kat"](img, 64, 48)
     assert ok is True, text
 
+
+# ---- S-9 (Mode B round 2): decode_image_in_window branches ---------------------------------------------------
+def _hd_preview_ramp(s, l, swap=False):
+    """One 64-px line of the HD PREVIEW pattern 10*(x+y) mod 256 for quadrant slot `s` (TL/TR/BL/BR), line `l`;
+    swap=True places TL content in TR and vice versa (a wrong quadrant mapping the pattern must catch)."""
+    q = {0: 1, 1: 0}.get(s, s) if swap else s
+    x0, y0 = 64 * (q % 2), 48 * (q // 2)
+    return bytes((10 * (x0 + x + y0 + l)) % 256 for x in range(64))
+
+
+HD_ARGS = dict(slot=0, image_mode="HD", resolution="PREVIEW", width=128, height=96, lines=192, out="kat-s9.png")
+
+
+def test_decode_expect_pattern_kat_holds_on_the_ramp(plan, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    ctx = make_ctx(plan, tmp_path, test_id="L2-10")
+    _dp(ctx, "hd.fdp", product(150, 0, 3, 1, 128, 96, 192, pixels_for=_hd_preview_ramp))
+    holds, seen, _refs, unverified = H(plan, "decode_image_in_window")(ctx, **HD_ARGS, expect="pattern_kat")
+    assert (holds, unverified) == (True, False), seen
+    assert "pattern KAT: px = 10*(x+y) mod 256: all 12288 px match" in seen
+
+
+def test_decode_expect_pattern_kat_fails_on_swapped_quadrant_content(plan, tmp_path, monkeypatch):
+    """Records in slot/line order (so the order check passes) but TL/TR content swapped: only the pattern KAT sees it."""
+    monkeypatch.chdir(tmp_path)
+    ctx = make_ctx(plan, tmp_path, test_id="L2-10")
+    _dp(ctx, "hd.fdp", product(150, 0, 3, 1, 128, 96, 192, pixels_for=lambda s, l: _hd_preview_ramp(s, l, swap=True)))
+    holds, seen, _refs, unverified = H(plan, "decode_image_in_window")(ctx, **HD_ARGS, expect="pattern_kat")
+    assert (holds, unverified) == (False, False), seen
+    assert "test-pattern KAT mismatch" in seen and "px differ" in seen
+    holds2, _seen2, _r, _u = H(plan, "decode_image_in_window")(ctx, **HD_ARGS, expect="none")
+    assert holds2 is True  # without the pattern expectation the same product passes: the KAT is the only detector
+
+
+def test_decode_undecodable_file_is_listed_and_not_counted(plan, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    ctx = make_ctx(plan, tmp_path, test_id="L7-1")
+    _dp(ctx, "garbage.fdp", b"\x00" * 40)  # shorter than a DpContainer header
+    _dp(ctx, "truncated.fdp", product(150, 3, 1, 1, 64, 48, 48)[:200])  # dataSize exceeds the file
+    holds, seen, _refs, unverified = H(plan, "decode_image_in_window")(ctx, **ARGS_L7)
+    assert (holds, unverified) == (False, False), seen
+    assert "0 Image product(s)" in seen and "garbage.fdp" in seen and "truncated.fdp" in seen and "undecodable" in seen
+    _dp(ctx, "good.fdp", product(150, 3, 1, 1, 64, 48, 48))
+    holds, seen, refs, unverified = H(plan, "decode_image_in_window")(ctx, **ARGS_L7)
+    assert (holds, unverified) == (True, False), seen  # the garbage beside it does not break the one good product
+    assert "raw/dp/good.fdp" in refs
+
+
+def test_decode_torn_window_is_unverified(plan, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    ctx = make_ctx(plan, tmp_path, test_id="L7-1")
+    _dp(ctx, "good.fdp", product(150, 3, 1, 1, 64, 48, 48))
+    torn = ctx.record.window(10, 999)  # END marker never logged
+    assert not torn.ok
+    ctx_torn = HelperContext(ctx.record, plan, plan.test("L7-1"), torn, {"W": torn})
+    holds, seen, refs, unverified = H(plan, "decode_image_in_window")(ctx_torn, **ARGS_L7)
+    assert (holds, unverified) == (None, True), seen
+    assert "markers incomplete" in seen and refs == []
+
