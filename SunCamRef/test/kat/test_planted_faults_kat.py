@@ -137,16 +137,19 @@ def test_version_matches_manifest_unverified_without_manifest(plan, tmp_path, mo
 HDR = struct.Struct(">HIIHBIIB32sBQ")
 
 
+BASE_ID = 0x20003000  # sunCamMgr base id (Top/instances.fpp); container Image id 0 -> container id == base
+
+
 def product(sec, slot, image_mode, resolution, width, height, lines, pixels_for=lambda s, l: None, line_order=None):
     """A DpContainer Image product: header, CRC slot, ImageHeader record (id 0), ImageLine records (id 1), data hash."""
     n = 640 if resolution == 0 else 64  # SDD Table 4: FULL 640 px, PREVIEW 64 px per line (hardware-true, probes-2/5)
-    body = struct.pack(">I", 0) + struct.pack(">BBBHHHH", slot, image_mode, resolution, width, height, 672, lines)
+    body = struct.pack(">I", BASE_ID + 0) + struct.pack(">BBBHHHH", slot, image_mode, resolution, width, height, 672, lines)
     per_slot = lines // 4 if image_mode == 3 else lines
     order = line_order or [((i // per_slot) if image_mode == 3 else slot, i % per_slot) for i in range(lines)]  # HD: slots 0..3 in order
     for s, l in order:
         px = pixels_for(s, l) or bytes([(s * 40 + l) & 0xFF]) * n
-        body += struct.pack(">I", 1) + struct.pack(">Q", 3 + len(px)) + bytes([s, l >> 8, l & 0xFF]) + px
-    hdr = HDR.pack(0, 0, 1, 2, 0, sec, 0, 0, b"\0" * 32, 0, len(body))
+        body += struct.pack(">I", BASE_ID + 1) + struct.pack(">Q", 3 + len(px)) + bytes([s, l >> 8, l & 0xFF]) + px
+    hdr = HDR.pack(0, BASE_ID, 1, 2, 0, sec, 0, 0, b"\0" * 32, 0, len(body))
     return hdr + b"\0\0\0\0" + body + b"\0\0\0\0"
 
 
@@ -311,3 +314,15 @@ def test_insert_fault_sleep_before_final(plan):
     assert out == [("sunCamMgr.SLEEP", []), ("sunCamMgr.CAPTURE", ["SLOT_4", "ON"])]
     assert F(plan, "sleep_before_final")("L2-2", "sunCamMgr.CAPTURE", ["SLOT_1", "OFF"]) is None
     assert F(plan, "sleep_before_final")("L7-1", "sunCamMgr.DOWNLOAD", ["SLOT_4", "PREVIEW"]) is None
+
+
+def test_parse_product_real_bench_container(plan):
+    """Real DpContainer from the bench (SunCamRef dry-5, slot 3 SD PREVIEW 64x48): record ids are base-qualified
+    (0x20003000 header, 0x20003001 line) — a decoder that expects local ids 0/1 rejects every real product."""
+    data = (Path(__file__).parent / "fixtures" / "Dp_536883200_1794262030_00092119.fdp").read_bytes()
+    parsed = H(plan, "decode_image_in_window").__globals__["parse_product"](data)
+    assert parsed["id"] == BASE_ID
+    assert parsed["header"] == {"slot": 3, "imageMode": 1, "resolution": 1, "width": 64, "height": 48, "exposure": 672,
+                                "linesExpected": 48}
+    assert len(parsed["lines"]) == 48 and all(len(px) == 64 and s == 3 for s, _, px in parsed["lines"])
+    assert [l for _, l, _ in parsed["lines"]] == list(range(48))

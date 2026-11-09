@@ -167,6 +167,9 @@ _HDR = struct.Struct(">HIIHBIIB32sBQ")
 _HDR_HASH = 4
 _DATA_OFFSET = _HDR.size + _HDR_HASH
 _RECORD_ID = struct.Struct(">I")
+# Record ids in the file are base-qualified: component base id + local id (Fw/Dp: getIdBase() + id). The container
+# id in the header is base + container local id (Image = id 0), so local record id = rid - (container id - 0).
+_CONTAINER_LOCAL_ID = 0
 _ARRAY_SIZE = struct.Struct(">Q")
 _IMAGE_HEADER = struct.Struct(">BBBHHHH")  # slot, imageMode, resolution, width, height, exposure, linesExpected (SDD Table 4)
 _MODE = {0: "SLEEP", 1: "SD", 2: "ZOOM", 3: "HD"}
@@ -184,9 +187,11 @@ def parse_product(data):
     if end > len(data):
         raise ValueError(f"dataSize {data_size} exceeds file ({len(data)} B)")
     pos, header, lines = _DATA_OFFSET, None, []
+    base = dp_id - _CONTAINER_LOCAL_ID
     while pos < end:
         (rid,) = _RECORD_ID.unpack_from(data, pos)
         pos += _RECORD_ID.size
+        rid -= base
         if rid == 0:
             header = dict(zip(("slot", "imageMode", "resolution", "width", "height", "exposure", "linesExpected"),
                               _IMAGE_HEADER.unpack_from(data, pos)))
@@ -200,7 +205,7 @@ def parse_product(data):
             lines.append((payload[0], (payload[1] << 8) | payload[2], bytes(payload[3:])))
             pos += n
         else:
-            raise ValueError(f"unknown record id {rid} at offset {pos}")
+            raise ValueError(f"unknown record id {rid + base:#x} (base {base:#x}) at offset {pos}")
     return {"id": dp_id, "time_s": sec + usec / 1e6, "header": header, "lines": lines}
 
 
