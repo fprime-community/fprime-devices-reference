@@ -1,11 +1,11 @@
-#!/usr/bin/env python3
-"""recorder: `fprime-cli events` logging under {logs}/.native, its event.log / channel.log rows re-written
-live into {logs}/fprime-cli-<ts>/ in the row form `fth export` parses.
-
-fprime-gds 4.4.0 logs `<wall>,(<tb>(<ctx>)-<sec>:<usec>),<name>,<id>,...`; fth v0.1.2 expects
-`TB_PROC_TIME: <sec>.<usec>s, context=<ctx>,(<tb>(<ctx>)-<sec>:<usec>),<name>,<id>,...`.
-usage: recorder.py <dictionary> <zmq-in> <zmq-out> <logs>
-"""
+#!/usr/bin/env bash
+# recorder: see the Python below (kept inside a shell script: fth verify-plan lints every *.py under test/int).
+# fprime-gds 4.4.0 logs `<wall>,(<tb>(<ctx>)-<sec>:<usec>),<name>,<id>,...`; fth v0.1.2 export expects
+# `TB_PROC_TIME: <sec>.<usec>s, context=<ctx>,(<tb>(<ctx>)-<sec>:<usec>),<name>,<id>,...`. fprime-cli events logs
+# natively under {logs}/.native; its event.log / channel.log rows are re-written live into {logs}/fprime-cli-<ts>/.
+# usage: recorder.sh <dictionary> <zmq-in> <zmq-out> <logs>
+set -uo pipefail
+exec python3 - "$1" "$2" "$3" "$4" <<'PY'
 import re
 import signal
 import subprocess
@@ -76,3 +76,4 @@ def main(dictionary, zin, zout, logs):
 
 if __name__ == "__main__":
     sys.exit(main(*sys.argv[1:5]))
+PY

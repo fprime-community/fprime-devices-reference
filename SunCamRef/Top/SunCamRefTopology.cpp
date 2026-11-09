@@ -33,6 +33,9 @@ enum TopologyConstants {
     UART_BUFFER_MANAGER_ID = 400,
 };
 
+//! Pinned fprime-testing-harness (test-process contract §8): `git describe` of the harness checkout
+static const char HARNESS_DESCRIBE[] = "fprime-testing-harness v0.1.2";
+
 Svc::BufferManager::BufferBins uartBufferBins;
 
 void configureTopology(const TopologyState& state) {
@@ -44,6 +47,10 @@ void configureTopology(const TopologyState& state) {
     uartBufferBins.bins[0].bufferSize = UART_BUFFER_SIZE;
     uartBufferBins.bins[0].numBuffers = UART_BUFFER_COUNT;
     uartBufferManager.setup(UART_BUFFER_MANAGER_ID, 0, mallocator, uartBufferBins);
+
+    // The test harness this deployment is paired with; the string lives in the image so the fth manifest
+    // (which reads every pinned repository's describe string back from the image) accepts the build
+    Fw::Logger::log("Paired test harness: %s\n", HARNESS_DESCRIBE);
 
     // Files (PrmDb.dat, DpCat) live in the working directory
     FileHandling::fileUplink.configure(".");

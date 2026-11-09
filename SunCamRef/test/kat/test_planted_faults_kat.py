@@ -103,7 +103,7 @@ def test_memory_slot_exposure_unverified_without_sample(plan, tmp_path):
 
 # ---- version_matches_manifest --------------------------------------------------------------------------
 
-REPOS = [{"name": "fprime-devices-reference", "describe": "a99a783-dirty"}, {"name": "fprime", "describe": "v4.0.0-100-gf28d2da"},
+REPOS = [{"name": "uut", "describe": "a99a783-dirty"}, {"name": "harness", "describe": "v0.1.2"}, {"name": "fprime", "describe": "v4.0.0-100-gf28d2da"},
          {"name": "fprime-devices", "describe": "6a2cf2d"}]
 VERSION_EVENTS = [(101.0, "version.ProjectVersion", "Project Version: [a99a783-dirty]"),
                   (102.0, "version.FrameworkVersion", "Framework Version: [v4.0.0-100-gf28d2da]"),

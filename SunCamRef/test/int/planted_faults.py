@@ -92,7 +92,8 @@ def sleep_before_final(test_id, command_name, args):
 # Every helper returns ``(holds, seen, refs, unverified)``: ``unverified=True`` means the evidence is
 # missing for an infrastructure reason (no manifest, no samples, no raw/dp/ directory), never a UUT verdict.
 
-PROJECT_REPO = "fprime-devices-reference"
+PROJECT_REPO = "uut"  # fth names the deployment repository (fprime-devices-reference) `uut` in manifest repos[]
+HARNESS_REPO = "harness"  # the harness is pinned in the image as a Svc.Version custom version, not a library
 FRAMEWORK_REPO = "fprime"
 
 
@@ -121,16 +122,16 @@ def _event_versions(ctx, short):
 @helper("version_matches_manifest")
 def version_matches_manifest(ctx, **args):
     """PASS iff the window's version.ProjectVersion / FrameworkVersion / LibraryVersions payloads equal
-    the manifest repos[].describe strings (project = fprime-devices-reference, framework = fprime,
+    the manifest repos[].describe strings (project = `uut` = fprime-devices-reference, framework = fprime,
     library = fprime-devices@<describe>) and the LibraryVersions count equals the number of manifest
-    repos that are neither project nor framework. Formats: Svc/Version/Version.fpp:56, :64, :72."""
+    repos that are neither project, framework nor the harness. Formats: Svc/Version/Version.fpp:56, :64, :72."""
     mp = _manifest_path(ctx)
     if mp is None:
         return None, "no manifest reachable ($FTH_MANIFEST or <run>/runner/pytest-argv.json --fth-manifest)", [], True
     repos = {r["name"]: r["describe"] for r in json.loads(mp.read_text(encoding="utf-8")).get("repos", [])}
     if PROJECT_REPO not in repos or FRAMEWORK_REPO not in repos:
         return None, f"manifest {mp} lacks repos {PROJECT_REPO!r}/{FRAMEWORK_REPO!r}: {sorted(repos)}", [], True
-    libs = sorted(f"{n}@{d}" for n, d in repos.items() if n not in (PROJECT_REPO, FRAMEWORK_REPO))
+    libs = sorted(f"{n}@{d}" for n, d in repos.items() if n not in (PROJECT_REPO, FRAMEWORK_REPO, HARNESS_REPO))
     proj, r1 = _event_versions(ctx, "version.ProjectVersion")
     fw, r2 = _event_versions(ctx, "version.FrameworkVersion")
     lib, r3 = _event_versions(ctx, "version.LibraryVersions")
