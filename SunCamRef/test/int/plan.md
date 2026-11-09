@@ -228,8 +228,8 @@ Evidence:  The product written during this window (not any earlier one) decodes 
 Planted faults:sleep_before_final
 
 ID:        L8-1
-Title:     Camera power-on (human step) → set-up
-Purpose:   Camera power-on (human step) → set-up
+Title:     Camera power-on (human step; run-for-record only, DEFERRED in rehearsal and dry runs) → set-up
+Purpose:   Camera power-on (human step; run-for-record only, DEFERRED in rehearsal and dry runs) → set-up
 Covers:    REQ-SunCamMgr-003, REQ-SunCamMgr-020, REQ-SunCamMgr-034, REQ-SunCamMgr-036
 Setup:     READY (after L7-1); W1 puts the component in NOT_SETUP with the camera still on; the human step then power-cycles the camera.
 Procedure: MARK(810); bracket (2 suncam samples); sunCamMgr.SLEEP; wait(SleepEntered, 5 s); bracket (2 suncam samples); MARK(812); human step (runner prompt: human_step); wait(3 s); sunCamMgr.SETUP_CAMERA; wait(SetupComplete, 15 s); bracket (2 suncam samples); MARK(811).

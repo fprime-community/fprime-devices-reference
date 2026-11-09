@@ -1736,8 +1736,8 @@
   },
   {
    "id": "L8-1",
-   "title": "Camera power-on (human step) → set-up",
-   "purpose": "Camera power-on (human step) → set-up",
+   "title": "Camera power-on (human step; run-for-record only, DEFERRED in rehearsal and dry runs) → set-up",
+   "purpose": "Camera power-on (human step; run-for-record only, DEFERRED in rehearsal and dry runs) → set-up",
    "covers": [
     "REQ-SunCamMgr-003",
     "REQ-SunCamMgr-020",
