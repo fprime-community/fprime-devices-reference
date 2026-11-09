@@ -33,7 +33,7 @@ def test_L5_1(fth_plan, window, check, require, send, bench):
         check('event cmdDisp.OpCodeError count == 1')
         check('ABS')
         bracket(bench)
-        send("sunCamMgr.DOWNLOAD", ['SLOT_0', 'FULL'])
+        send("sunCamMgr.DOWNLOAD", ['SLOT_0', 'FULL'], wait_completion=False)  # completes when the operation ends; the plan waits on its Started event
         bench.wait_event("sunCamMgr.DownloadStarted", 5)
         send("sunCamMgr.PING", ['MCU'], wait_completion=False)  # plan expects the UUT to refuse this command (OpCodeError)
         bench.wait_event("sunCamMgr.CommandRejected", 5)
