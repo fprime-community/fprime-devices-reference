@@ -55,13 +55,13 @@ def read_wrong_register(test_id, command_name, args):
 
 
 @planted_fault("preview_instead_of_full", applies_to=["L2-5"], cls="stimulus", kind="rewrite",
-               mechanism="DOWNLOAD(SLOT_1, FULL) rewritten to PREVIEW: 48 lines / 3072 bytes arrive where 480 / 307200 are expected (H3)",
+               mechanism="DOWNLOAD(SLOT_0, FULL) rewritten to PREVIEW: 48 lines / 3072 bytes arrive where 480 / 307200 are expected (H3)",
                fails={"L2-5": [
-                   "event sunCamMgr.DownloadStarted(slot=SLOT_1, imageMode=SD, resolution=FULL, lines=480) count == 1",
-                   "event sunCamMgr.DownloadComplete(slot=SLOT_1, imageMode=SD, resolution=FULL, lines=480, bytes=307200) count == 1",
+                   "event sunCamMgr.DownloadStarted(slot=SLOT_0, imageMode=SD, resolution=FULL, lines=480) count == 1",
+                   "event sunCamMgr.DownloadComplete(slot=SLOT_0, imageMode=SD, resolution=FULL, lines=480, bytes=307200) count == 1",
                    "delta(sunCamMgr.LinesDownloaded) == 480",
-                   "one Image product in window: ImageHeader(slot=1, imageMode=SD, resolution=FULL, width=640, height=480), 480 slot-tagged ImageLine records in order; PNG → dev-evidence/images/L2-5-full.png",
-                   "t(event sunCamMgr.DownloadComplete(slot=SLOT_1, imageMode=SD, resolution=FULL, lines=480, bytes=307200)) - t(sunCamMgr.DOWNLOAD sent) <= 90 s"]})
+                   "one Image product in window: ImageHeader(slot=0, imageMode=SD, resolution=FULL, width=640, height=480), 480 slot-tagged ImageLine records in order; PNG → dev-evidence/images/L2-5-full.png",
+                   "t(event sunCamMgr.DownloadComplete(slot=SLOT_0, imageMode=SD, resolution=FULL, lines=480, bytes=307200)) - t(sunCamMgr.DOWNLOAD sent) <= 90 s"]})
 def preview_instead_of_full(test_id, command_name, args):
     if test_id == "L2-5" and _is(command_name, "DOWNLOAD") and len(args) == 2 and str(args[1]) == "FULL":
         return [args[0], "PREVIEW"]
@@ -69,16 +69,16 @@ def preview_instead_of_full(test_id, command_name, args):
 
 
 @planted_fault("sleep_before_final", applies_to=["L7-1"], cls="uut-state", kind="insert",
-               mechanism="SLEEP inserted before CAPTURE(SLOT_4, ON): the component is NOT_SETUP, CAPTURE/DOWNLOAD are rejected NOT_READY, no product is written in the window",
+               mechanism="SLEEP inserted before CAPTURE(SLOT_3, ON): the component is NOT_SETUP, CAPTURE/DOWNLOAD are rejected NOT_READY, no product is written in the window",
                fails={"L7-1": [
-                   "event sunCamMgr.CaptureComplete(slot=SLOT_4, testPattern=ON, mode=SD) count == 1",
-                   "event sunCamMgr.DownloadComplete(slot=SLOT_4, imageMode=SD, resolution=PREVIEW, lines=48, bytes=3072) count == 1",
+                   "event sunCamMgr.CaptureComplete(slot=SLOT_3, testPattern=ON, mode=SD) count == 1",
+                   "event sunCamMgr.DownloadComplete(slot=SLOT_3, imageMode=SD, resolution=PREVIEW, lines=48, bytes=3072) count == 1",
                    "event sunCamMgr.CommandRejected count == 0",
                    "delta(sunCamMgr.ImagesCaptured) == 1",
                    "delta(sunCamMgr.ProductsSent) == 1",
                    "last(dpMgr.NumDataProducts) == 2",
                    "last(sunCamMgr.SetupState) == READY",
-                   "exactly one Image product in window: ImageHeader(slot=4, imageMode=SD, resolution=PREVIEW, width=64, height=48), 48 lines in order; PNG → dev-evidence/images/L7-1-final.png",
+                   "exactly one Image product in window: ImageHeader(slot=3, imageMode=SD, resolution=PREVIEW, width=64, height=48), 48 lines in order; PNG → dev-evidence/images/L7-1-final.png",
                    "event cmdDisp.OpCodeError count == 0"]})
 def sleep_before_final(test_id, command_name, args):
     if test_id == "L7-1" and _is(command_name, "CAPTURE"):
@@ -152,36 +152,6 @@ def delta_mod(ctx, channel, delta, mod):
     return got == int(delta), f"{channel}: first {first} last {last} -> delta mod {mod} = {got} (expected {delta})", refs, False
 
 
-def _slot_exposures(value):
-    """``MemorySlots`` sample -> {slot number: exposure}; accepts the exporter's parsed list or its text."""
-    if isinstance(value, str):
-        value = json.loads(value)
-    out = {}
-    for i, slot in enumerate(value, start=1):
-        if isinstance(slot, dict):
-            out[i] = int(slot["exposure"])
-        else:
-            out[i] = int(slot[1])
-    return out
-
-
-@helper("memory_slot_exposure")
-def memory_slot_exposure(ctx, **slots):
-    """PASS iff last(sunCamMgr.MemorySlots) carries the named slot exposures (slot4=0 → test pattern, §7.4.3)."""
-    rows = ctx.window.channel("sunCamMgr.MemorySlots")
-    if not rows:
-        return None, "sunCamMgr.MemorySlots: no sample in window", [], True
-    last = rows[-1]
-    try:
-        got = _slot_exposures(last.raw if last.raw is not None else last.value)
-    except (KeyError, TypeError, ValueError, IndexError, json.JSONDecodeError) as exc:
-        return False, f"sunCamMgr.MemorySlots: undecodable sample {last.raw!r} ({exc})", [f"channels.jsonl:{last.idx}"], False
-    want = {int(k[4:]) if k.startswith("slot") else int(k): int(v) for k, v in slots.items()}
-    holds = all(got.get(k) == v for k, v in want.items())
-    seen = "last MemorySlots exposures " + ", ".join(f"slot{k}={got.get(k)}" for k in sorted(want)) + f" (expected {want})"
-    return holds, seen, [f"channels.jsonl:{last.idx}"], False
-
-
 # ---- Image data product decoding (SDD §Data product; Fw/Dp/DpContainer.hpp) ----------------------------
 
 # DpContainer header for this build (default FpConfig on 64-bit Linux):
@@ -193,9 +163,10 @@ _DATA_OFFSET = _HDR.size + _HDR_HASH
 _RECORD_ID = struct.Struct(">I")
 _ARRAY_SIZE = struct.Struct(">Q")
 _IMAGE_HEADER = struct.Struct(">BBBHHHH")  # slot, imageMode, resolution, width, height, exposure, linesExpected (SDD Table 4)
-_MODE = {1: "SD", 2: "HD", 0: "SLEEP"}
+_MODE = {0: "SLEEP", 1: "SD", 2: "ZOOM", 3: "HD"}
 _RESOLUTION = {0: "FULL", 1: "PREVIEW"}
-_LINE_PIXELS = {"FULL": 640, "PREVIEW": 64}  # bench H3 (datasheet says 80)
+_LINE_PIXELS = {"FULL": 640, "PREVIEW": 64}  # SDD Table 4 / §Hardware notes
+_SLOT_SIZE = {"FULL": (640, 480), "PREVIEW": (64, 48)}  # one slot; an HD image is 2 × 2 slots (SDD §Data product)
 
 
 def parse_product(data):
@@ -241,13 +212,19 @@ def write_png(path, width, height, rows):
 
 
 def assemble(header, lines):
-    """Place the lines in the image: every product is one slot, SD or HD alike (SDD §Not supported on our hardware, H5)."""
+    """Place the lines in the image. SD/Zoom: one slot. HD: the slot tag places the line in its quadrant —
+    x0 = slot_w * (slot % 2), y0 = slot_h * (slot // 2): 0 TL, 1 TR, 2 BL, 3 BR (SDD §Data product)."""
     width, height = header["width"], header["height"]
-    n = _LINE_PIXELS[_RESOLUTION[header["resolution"]]]
+    resolution = _RESOLUTION[header["resolution"]]
+    n = _LINE_PIXELS[resolution]
+    slot_w, slot_h = _SLOT_SIZE[resolution]
+    hd = _MODE.get(header["imageMode"]) == "HD"
     image = [bytearray(width) for _ in range(height)]
-    for _slot, line, px in lines:
-        if 0 <= line < height and len(px) == n and n <= width:
-            image[line][0:n] = px
+    for slot, line, px in lines:
+        x0, y0 = (slot_w * (slot % 2), slot_h * (slot // 2)) if hd else (0, 0)
+        y = y0 + line
+        if 0 <= line < slot_h and 0 <= y < height and len(px) == n and x0 + n <= width:
+            image[y][x0:x0 + n] = px
     return image
 
 
@@ -258,7 +235,7 @@ def check_product(parsed, slot, image_mode, resolution, width, height, lines, ex
     problems = []
     if h is None:
         return False, ["no ImageHeader record"]
-    want = {"slot": int(slot), "imageMode": {"SD": 1, "HD": 2}[image_mode], "resolution": {"FULL": 0, "PREVIEW": 1}[resolution],
+    want = {"slot": int(slot), "imageMode": {"SD": 1, "ZOOM": 2, "HD": 3}[image_mode], "resolution": {"FULL": 0, "PREVIEW": 1}[resolution],
             "width": int(width), "height": int(height), "linesExpected": int(lines)}
     if exposure is not None:
         want["exposure"] = int(exposure)
@@ -269,7 +246,11 @@ def check_product(parsed, slot, image_mode, resolution, width, height, lines, ex
     got = parsed["lines"]
     if len(got) != int(lines):
         problems.append(f"{len(got)} ImageLine records (expected {lines})")
-    expected = [(int(slot), i) for i in range(int(lines))]  # one slot per product, SD or HD (H5)
+    if image_mode == "HD":  # slots 0..3 in order, lines/4 each (SDD §Data product)
+        per_slot = int(lines) // 4
+        expected = [(s, i) for s in range(4) for i in range(per_slot)]
+    else:
+        expected = [(int(slot), i) for i in range(int(lines))]
     bad_order = [i for i, ((s, l, px), (es, el)) in enumerate(zip(got, expected)) if (s, l) != (es, el)]
     if bad_order:
         problems.append(f"{len(bad_order)} record(s) out of slot/line order, first at index {bad_order[0]}: {got[bad_order[0]][:2]}")
@@ -290,7 +271,7 @@ def decode_image_in_window(ctx, slot, image_mode, resolution, width, height, lin
     """Reads record/raw/dp/ (copied from the DpWriter directory by the bench dump recipe), selects the
     Image-container product whose header time lies in [t(START), t(END)] of the window (FSW time);
     FAILs when none or more than one exists; decodes ImageHeader + ImageLine records, checks
-    header fields (incl. imageMode and, when given, exposure), `lines` records tagged with the slot in line order (one slot per product, SD or HD; H5); expect="pattern_kat" (added at the §7 refresh,
+    header fields (incl. imageMode and, when given, exposure), `lines` records in slot/line order (SD/Zoom: the one slot; HD: slots 0..3, lines/4 each); expect="pattern_kat" (added at the §7 refresh,
     decision log 10) compares the decoded preview with the pinned test-pattern reference;
     writes dev-evidence/images/<out> (PNG, Bayer as grey)."""
     w = ctx.window
