@@ -44,7 +44,7 @@ def test_L5_3(fth_plan, window, check, require, send, bench):
         bench.wait_event("sunCamMgr.SettingRejected", 5)
         send("sunCamMgr.SETUP_CAMERA", [], wait_completion=False)  # plan expects the UUT to refuse this command (OpCodeError)
         bench.wait_event("sunCamMgr.SetupFailed", 15)
-        send("sunCamMgr.EXPOSURE_PRM_SET", [672])
+        send("sunCamMgr.EXPOSURE_PRM_SET", [672], wait_completion=False)  # plan expects the UUT to refuse this command (OpCodeError)
         bench.wait(2)
         send("sunCamMgr.SETUP_CAMERA", [])
         bench.wait_event("sunCamMgr.SetupComplete", 15)

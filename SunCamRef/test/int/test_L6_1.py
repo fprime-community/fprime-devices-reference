@@ -58,7 +58,7 @@ def test_L6_1(fth_plan, window, check, require, send, bench):
         send("sunCamMgr.DOWNLOAD", ['SLOT_1', 'PREVIEW'], wait_completion=False)  # plan expects the UUT to refuse this command (OpCodeError)
         send("sunCamMgr.MEMORY_STATUS", [], wait_completion=False)  # plan expects the UUT to refuse this command (OpCodeError)
         send("sunCamMgr.READ_REGISTER", [12306], wait_completion=False)  # plan expects the UUT to refuse this command (OpCodeError)
-        send("sunCamMgr.DOWNLOAD_ABORT", [])
+        send("sunCamMgr.DOWNLOAD_ABORT", [], wait_completion=False)  # plan expects the UUT to refuse this command (OpCodeError)
         bench.wait(2)
         send("sunCamMgr.PING", ['MCU'])
         bench.wait_event("sunCamMgr.PingReply", 5)
