@@ -1,0 +1,75 @@
+"""L2-10: HD image: capture and preview download as one product
+
+Procedure (plan.json, verbatim order):
+  MARK(2100)
+  bracket (2 suncam samples)
+  sunCamMgr.CAMERA_MODE_PRM_SET(HD)
+  wait(ExposureReadback, 5 s)
+  sunCamMgr.CAPTURE(SLOT_1, ON)
+  wait(CaptureComplete, 10 s)
+  sunCamMgr.DOWNLOAD(SLOT_3, PREVIEW)
+  wait(DownloadComplete, 40 s)
+  sunCamMgr.CAMERA_MODE_PRM_SET(SD)
+  wait(ExposureReadback, 5 s)
+  sunCamMgr.CAPTURE(SLOT_1, OFF)
+  wait(CaptureComplete, 10 s)
+  sunCamMgr.CAPTURE(SLOT_2, OFF)
+  wait(CaptureComplete, 10 s)
+  sunCamMgr.CAPTURE(SLOT_3, OFF)
+  wait(CaptureComplete, 10 s)
+  sunCamMgr.CAPTURE(SLOT_4, OFF)
+  wait(CaptureComplete, 10 s)
+  sunCamMgr.MEMORY_STATUS
+  wait(MemoryStatusReply, 5 s)
+  bracket (2 suncam samples)
+  MARK(2101)
+"""
+import pytest
+
+from suncam import bracket, helper, wait_any
+
+
+@pytest.mark.req('REQ-SunCamMgr-013', 'REQ-SunCamMgr-014', 'REQ-SunCamMgr-015')
+def test_L2_10(fth_plan, window, check, require, send, bench):
+    with window(2100, 2101):  # W
+        require("STD")
+        check('event sunCamMgr.SettingApplied(setting=CAMERA_MODE, value=2) count == 1')
+        check('event sunCamMgr.SettingApplied(setting=CAMERA_MODE, value=1) count == 1')
+        check('event sunCamMgr.CaptureComplete(slot=SLOT_1, testPattern=ON, mode=HD) count == 1')
+        check('event sunCamMgr.CaptureComplete(testPattern=OFF, exposure=672, mode=SD) count == 4')
+        check('event sunCamMgr.MemoryStatusReply count == 2')
+        check('last(MemorySlots): slots 1-4 exposure 672 (all SD again)',
+              helper(fth_plan, "memory_slot_exposure", slot1=672, slot2=672, slot3=672, slot4=672))
+        check('event sunCamMgr.DownloadStarted(slot=SLOT_3, imageMode=HD, resolution=PREVIEW, lines=240) count == 1')
+        check('event sunCamMgr.DownloadComplete(slot=SLOT_3, imageMode=HD, resolution=PREVIEW, lines=240, bytes=19200) count == 1')
+        check('event sunCamMgr.DownloadAborted count == 0')
+        check('delta(sunCamMgr.LinesDownloaded) == 240')
+        check('delta(sunCamMgr.ProductsSent) == 1')
+        check('delta(sunCamMgr.ImagesCaptured) == 5')
+        check('last(dpMgr.NumDataProducts) == 3')
+        check('last(sunCamMgr.CameraMode) == SD')
+        check('last(sunCamMgr.SetupState) == READY')
+        check('one Image product in window: ImageHeader(slot=3, imageMode=HD, resolution=PREVIEW, width=160, height=120), 240 ImageLine records tagged slot 1,2,3,4 × lines 0..59 in order; quadrants assembled; PNG → dev-evidence/images/L2-10-hd-preview.png',
+              helper(fth_plan, "decode_image_in_window", slot=3, image_mode='HD', resolution='PREVIEW', width=160, height=120, lines=240, expect='none', out='L2-10-hd-preview.png'))
+        check('event cmdDisp.OpCodeError count == 0')
+        check('ABS')
+        bracket(bench)
+        send("sunCamMgr.CAMERA_MODE_PRM_SET", ['HD'])
+        bench.wait_event("sunCamMgr.ExposureReadback", 5)
+        send("sunCamMgr.CAPTURE", ['SLOT_1', 'ON'])
+        bench.wait_event("sunCamMgr.CaptureComplete", 10)
+        send("sunCamMgr.DOWNLOAD", ['SLOT_3', 'PREVIEW'])
+        bench.wait_event("sunCamMgr.DownloadComplete", 40)
+        send("sunCamMgr.CAMERA_MODE_PRM_SET", ['SD'])
+        bench.wait_event("sunCamMgr.ExposureReadback", 5)
+        send("sunCamMgr.CAPTURE", ['SLOT_1', 'OFF'])
+        bench.wait_event("sunCamMgr.CaptureComplete", 10)
+        send("sunCamMgr.CAPTURE", ['SLOT_2', 'OFF'])
+        bench.wait_event("sunCamMgr.CaptureComplete", 10)
+        send("sunCamMgr.CAPTURE", ['SLOT_3', 'OFF'])
+        bench.wait_event("sunCamMgr.CaptureComplete", 10)
+        send("sunCamMgr.CAPTURE", ['SLOT_4', 'OFF'])
+        bench.wait_event("sunCamMgr.CaptureComplete", 10)
+        send("sunCamMgr.MEMORY_STATUS", [])
+        bench.wait_event("sunCamMgr.MemoryStatusReply", 5)
+        bracket(bench)
