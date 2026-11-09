@@ -271,10 +271,25 @@ def check_product(parsed, slot, image_mode, resolution, width, height, lines, ex
     return not problems, problems
 
 
+_PATTERN_STRIDE = {64: 10, 128: 10, 640: 1, 1280: 1}  # image width -> sample stride of the camera's test pattern
+
+
 def test_pattern_kat(image, width, height):
-    """§7 refresh (decision 10): the camera's test pattern as decoded from the bench unit. Filled in at the bench;
-    until then any decoded preview is reported with its row statistics and the KAT is UNVERIFIED."""
-    return None, "pattern KAT reference not pinned yet (§7 refresh item)"
+    """Decoder KAT (bench-observed, campaign fvp-2026-11-07-1 dry runs; Rev 1.3 §7.4.5 does not specify the ramp):
+    the camera's test pattern is px = (x + y) mod 256 on the 640×480 FULL grid; a PREVIEW is its 10× subsample, so
+    a decoded preview reads px = 10·(x + y) mod 256 with x, y in the decoded image (an HD image is continuous
+    across its four quadrants: TL/TR/BL/BR placement is part of what this verifies). Returns (True/False, text), or
+    (None, text) for a geometry the reference does not cover. Not a plan pass rule — decoder/KAT evidence only."""
+    stride = _PATTERN_STRIDE.get(width)
+    if stride is None or len(image) != height or any(len(r) != width for r in image):
+        return None, f"pattern KAT reference covers widths {sorted(_PATTERN_STRIDE)}; image {width}x{height}, {len(image)} rows"
+    bad = [(x, y, image[y][x], (stride * (x + y)) % 256) for y in range(height) for x in range(width)
+           if image[y][x] != (stride * (x + y)) % 256]
+    rule = f"px = {stride}*(x+y) mod 256" if stride != 1 else "px = (x+y) mod 256"
+    if bad:
+        x, y, got, want = bad[0]
+        return False, f"{rule}: {len(bad)}/{width * height} px differ, first at ({x},{y}) got {got} want {want}"
+    return True, f"{rule}: all {width * height} px match"
 
 
 @helper("decode_image_in_window")

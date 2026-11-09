@@ -326,3 +326,40 @@ def test_parse_product_real_bench_container(plan):
                                 "linesExpected": 48}
     assert len(parsed["lines"]) == 48 and all(len(px) == 64 and s == 3 for s, _, px in parsed["lines"])
     assert [l for _, l, _ in parsed["lines"]] == list(range(48))
+
+
+def _ramp(width, height, stride):
+    return [bytearray((stride * (x + y)) % 256 for x in range(width)) for y in range(height)]
+
+
+def test_pattern_kat_reference_preview_and_full(plan):
+    """Bench-observed reference (dry-5/7/8 products): PREVIEW px = 10*(x+y) mod 256, FULL px = (x+y) mod 256."""
+    kat = H(plan, "decode_image_in_window").__globals__["test_pattern_kat"]
+    assert kat(_ramp(64, 48, 10), 64, 48)[0] is True
+    assert kat(_ramp(128, 96, 10), 128, 96)[0] is True
+    assert kat(_ramp(640, 480, 1), 640, 480)[0] is True
+    assert kat(_ramp(1280, 960, 1), 1280, 960)[0] is True
+    ok, text = kat(_ramp(64, 48, 1), 64, 48)  # wrong stride
+    assert ok is False and "differ" in text
+    dark = [bytearray([10] * 640) for _ in range(480)]  # a real dark frame (test pattern OFF) is not the pattern
+    assert kat(dark, 640, 480)[0] is False
+    assert kat(_ramp(80, 60, 10), 80, 60)[0] is None  # geometry outside the reference -> unverified, never a verdict
+
+
+def test_pattern_kat_detects_swapped_hd_quadrants(plan):
+    g = H(plan, "decode_image_in_window").__globals__
+    img = _ramp(128, 96, 10)
+    for y in range(48):  # swap TL and TR quadrants
+        img[y][0:64], img[y][64:128] = img[y][64:128], img[y][0:64]
+    ok, text = g["test_pattern_kat"](img, 128, 96)
+    assert ok is False and "differ" in text
+
+
+def test_pattern_kat_on_the_real_bench_product(plan):
+    g = H(plan, "decode_image_in_window").__globals__
+    data = (Path(__file__).parent / "fixtures" / "Dp_536883200_1794262030_00092119.fdp").read_bytes()
+    parsed = g["parse_product"](data)
+    img = g["assemble"](parsed["header"], parsed["lines"])
+    ok, text = g["test_pattern_kat"](img, 64, 48)
+    assert ok is True, text
+
