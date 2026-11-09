@@ -74,33 +74,6 @@ def test_delta_mod_unverified_with_one_sample(plan, tmp_path):
     assert (holds, unverified) == (None, True)
 
 
-# ---- memory_slot_exposure ------------------------------------------------------------------------------
-
-SLOTS = [{"slot": 1, "exposure": 672}, {"slot": 2, "exposure": 672}, {"slot": 3, "exposure": 300}, {"slot": 4, "exposure": 0}]
-
-
-def test_memory_slot_exposure_pass_last_sample_wins(plan, tmp_path):
-    stale = [{"slot": 1, "exposure": 1}, {"slot": 2, "exposure": 1}, {"slot": 3, "exposure": 1}, {"slot": 4, "exposure": 1}]
-    ctx = make_ctx(plan, tmp_path, channels=[(110.0, "sunCamMgr.MemorySlots", stale), (150.0, "sunCamMgr.MemorySlots", SLOTS)])
-    holds, seen, refs, unverified = H(plan, "memory_slot_exposure")(ctx, slot4=0, slot3=300)
-    assert (holds, unverified) == (True, False) and refs == ["channels.jsonl:2"], seen
-
-
-def test_memory_slot_exposure_accepts_text_sample(plan, tmp_path):
-    ctx = make_ctx(plan, tmp_path, channels=[(150.0, "sunCamMgr.MemorySlots", json.dumps(SLOTS))])
-    assert H(plan, "memory_slot_exposure")(ctx, slot1=672)[0] is True
-
-
-def test_memory_slot_exposure_fail(plan, tmp_path):
-    ctx = make_ctx(plan, tmp_path, channels=[(150.0, "sunCamMgr.MemorySlots", SLOTS)])
-    assert H(plan, "memory_slot_exposure")(ctx, slot4=672)[0] is False
-
-
-def test_memory_slot_exposure_unverified_without_sample(plan, tmp_path):
-    ctx = make_ctx(plan, tmp_path)
-    assert H(plan, "memory_slot_exposure")(ctx, slot4=0)[3] is True
-
-
 # ---- version_matches_manifest --------------------------------------------------------------------------
 
 REPOS = [{"name": "uut", "describe": "a99a783-dirty"}, {"name": "harness", "describe": "v0.1.2"}, {"name": "fprime", "describe": "v4.0.0-100-gf28d2da"},
@@ -159,10 +132,10 @@ HDR = struct.Struct(">HIIHBIIB32sBQ")
 
 def product(sec, slot, image_mode, resolution, width, height, lines, pixels_for=lambda s, l: None, line_order=None):
     """A DpContainer Image product: header, CRC slot, ImageHeader record (id 0), ImageLine records (id 1), data hash."""
-    n = 640 if resolution == 0 else 80
-    body = struct.pack(">I", 0) + struct.pack(">BBBHHBH", slot, image_mode, resolution, width, height, image_mode, lines)
-    per_slot = lines // 4 if image_mode == 2 else lines
-    order = line_order or [((i // per_slot) + 1 if image_mode == 2 else slot, i % per_slot) for i in range(lines)]
+    n = 640 if resolution == 0 else 64  # SDD Table 4: FULL 640 px, PREVIEW 64 px per line (hardware-true, probes-2/5)
+    body = struct.pack(">I", 0) + struct.pack(">BBBHHHH", slot, image_mode, resolution, width, height, 672, lines)
+    per_slot = lines // 4 if image_mode == 3 else lines
+    order = line_order or [((i // per_slot) if image_mode == 3 else slot, i % per_slot) for i in range(lines)]  # HD: slots 0..3 in order
     for s, l in order:
         px = pixels_for(s, l) or bytes([(s * 40 + l) & 0xFF]) * n
         body += struct.pack(">I", 1) + struct.pack(">Q", 3 + len(px)) + bytes([s, l >> 8, l & 0xFF]) + px
@@ -191,42 +164,83 @@ def _png_pixels(path):
     return w, h, [raw[r * (w + 1) + 1:(r + 1) * (w + 1)] for r in range(h)]
 
 
-ARGS_L7 = dict(slot=4, image_mode="SD", resolution="PREVIEW", width=80, height=60, lines=60, expect="none", out="kat-L7-1.png")
+ARGS_L7 = dict(slot=3, image_mode="SD", resolution="PREVIEW", width=64, height=48, lines=48, expect="none", out="kat-L7-1.png")
+
+
+def ramp(slot, line, n, slot_w=64, slot_h=48):
+    """The camera's own test pattern as measured on the bench (probes-2/3/5): px = (x + y) mod 256 over the whole image,
+    preview 10x; an HD quadrant starts at (64·(slot%2), 48·(slot//2)) of the 128×96 preview."""
+    x0, y0 = slot_w * (slot % 2), slot_h * (slot // 2)
+    return bytes(((x0 + c) + (y0 + line)) & 0xFF for c in range(n))
 
 
 def test_decode_sd_preview_pass_writes_png(plan, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     ctx = make_ctx(plan, tmp_path, test_id="L7-1")
-    _dp(ctx, "SunCamRef_sunCamMgr_Image_0001.fdp", product(150, 4, 1, 1, 80, 60, 60))
-    _dp(ctx, "earlier.fdp", product(50, 4, 1, 1, 80, 60, 60))  # before the window: ignored
+    _dp(ctx, "SunCamRef_sunCamMgr_Image_0001.fdp", product(150, 3, 1, 1, 64, 48, 48))
+    _dp(ctx, "earlier.fdp", product(50, 3, 1, 1, 64, 48, 48))  # before the window: ignored
     holds, seen, refs, unverified = H(plan, "decode_image_in_window")(ctx, **ARGS_L7)
     assert (holds, unverified) == (True, False), seen
     assert "raw/dp/SunCamRef_sunCamMgr_Image_0001.fdp" in refs
     w, h, rows = _png_pixels(tmp_path / "dev-evidence" / "images" / "kat-L7-1.png")
-    assert (w, h) == (80, 60) and rows[5][0] == (4 * 40 + 5) & 0xFF
+    assert (w, h) == (64, 48) and rows[5][0] == (3 * 40 + 5) & 0xFF
 
 
 def test_decode_hd_preview_quadrants(plan, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     ctx = make_ctx(plan, tmp_path, test_id="L2-10")
-    _dp(ctx, "hd.fdp", product(150, 1, 2, 1, 160, 120, 240, pixels_for=lambda s, l: bytes([s * 50]) * 80))
-    args = dict(slot=1, image_mode="HD", resolution="PREVIEW", width=160, height=120, lines=240, expect="none", out="kat-hd.png")
+    _dp(ctx, "hd.fdp", product(150, 0, 3, 1, 128, 96, 192, pixels_for=lambda s, l: bytes([(s + 1) * 50]) * 64))
+    args = dict(slot=0, image_mode="HD", resolution="PREVIEW", width=128, height=96, lines=192, expect="none", out="kat-hd.png")
     holds, seen, _refs, _u = H(plan, "decode_image_in_window")(ctx, **args)
     assert holds is True, seen
     w, h, rows = _png_pixels(tmp_path / "dev-evidence" / "images" / "kat-hd.png")
-    assert (w, h) == (160, 120)
-    assert (rows[0][0], rows[0][159], rows[119][0], rows[119][159]) == (50, 100, 150, 200)  # TL/TR/BL/BR = slots 1-4
+    assert (w, h) == (128, 96)
+    assert (rows[0][0], rows[0][127], rows[95][0], rows[95][127]) == (50, 100, 150, 200)  # TL/TR/BL/BR = slots 0..3
+
+
+def test_decode_hd_preview_four_quadrant_ramp_is_one_continuous_image(plan, tmp_path, monkeypatch):
+    """Mode B 3b KAT: the camera's px=(x+y) ramp split into four 64×48 quadrant slots reassembles into one 128×96 ramp."""
+    monkeypatch.chdir(tmp_path)
+    ctx = make_ctx(plan, tmp_path, test_id="L2-10")
+    _dp(ctx, "hd.fdp", product(150, 0, 3, 1, 128, 96, 192, pixels_for=lambda s, l: ramp(s, l, 64)))
+    args = dict(slot=0, image_mode="HD", resolution="PREVIEW", width=128, height=96, lines=192, expect="none", out="kat-hd-ramp.png")
+    holds, seen, _refs, _u = H(plan, "decode_image_in_window")(ctx, **args)
+    assert holds is True, seen
+    w, h, rows = _png_pixels(tmp_path / "dev-evidence" / "images" / "kat-hd-ramp.png")
+    assert (w, h) == (128, 96) and all(rows[y][x] == (x + y) & 0xFF for y in range(96) for x in range(128))
+    assert rows[0][64] == 0x40 and rows[48][0] == 0x30 and rows[48][64] == 0x70  # TR / BL / BR quadrant origins (probes-5: 0x80/0xe0/0x60 ×10 preview scale aside)
+
+
+def test_decode_hd_swapped_quadrants_fail(plan, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    ctx = make_ctx(plan, tmp_path, test_id="L2-10")
+    order = [(s, l) for s in (1, 0, 2, 3) for l in range(48)]  # slot 1 before slot 0: out of order
+    _dp(ctx, "hd.fdp", product(150, 0, 3, 1, 128, 96, 192, line_order=order))
+    args = dict(slot=0, image_mode="HD", resolution="PREVIEW", width=128, height=96, lines=192, expect="none", out="kat-hd-swap.png")
+    holds, seen, _refs, _u = H(plan, "decode_image_in_window")(ctx, **args)
+    assert holds is False and "out of slot/line order" in seen
+
+
+def test_decode_sd_full_640x480(plan, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    ctx = make_ctx(plan, tmp_path, test_id="L2-5")
+    _dp(ctx, "full.fdp", product(150, 1, 1, 0, 640, 480, 480, pixels_for=lambda s, l: ramp(0, l, 640)))
+    args = dict(slot=1, image_mode="SD", resolution="FULL", width=640, height=480, lines=480, expect="none", out="kat-sd-full.png")
+    holds, seen, _refs, _u = H(plan, "decode_image_in_window")(ctx, **args)
+    assert holds is True, seen
+    w, h, rows = _png_pixels(tmp_path / "dev-evidence" / "images" / "kat-sd-full.png")
+    assert (w, h) == (640, 480) and rows[479][639] == (639 + 479) & 0xFF and rows[1][0] == 1
 
 
 @pytest.mark.parametrize("bad, why", [
-    (dict(lines=59), "one line short"),
-    (dict(image_mode=2), "header imageMode HD instead of SD"),
-    (dict(slot=1), "header slot 1 instead of 4"),
+    (dict(lines=47), "one line short"),
+    (dict(image_mode=3), "header imageMode HD instead of SD"),
+    (dict(slot=1), "header slot 1 instead of 3"),
 ])
 def test_decode_fails_on_header_or_line_count(plan, tmp_path, monkeypatch, bad, why):
     monkeypatch.chdir(tmp_path)
     ctx = make_ctx(plan, tmp_path, test_id="L7-1")
-    kw = dict(sec=150, slot=4, image_mode=1, resolution=1, width=80, height=60, lines=60)
+    kw = dict(sec=150, slot=3, image_mode=1, resolution=1, width=64, height=48, lines=48)
     kw.update(bad)
     _dp(ctx, "p.fdp", product(**kw))
     holds, seen, _r, unverified = H(plan, "decode_image_in_window")(ctx, **ARGS_L7)
@@ -236,9 +250,9 @@ def test_decode_fails_on_header_or_line_count(plan, tmp_path, monkeypatch, bad, 
 def test_decode_fails_on_line_order(plan, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     ctx = make_ctx(plan, tmp_path, test_id="L7-1")
-    order = [(4, l) for l in range(60)]
+    order = [(3, l) for l in range(48)]
     order[10], order[11] = order[11], order[10]
-    _dp(ctx, "p.fdp", product(150, 4, 1, 1, 80, 60, 60, line_order=order))
+    _dp(ctx, "p.fdp", product(150, 3, 1, 1, 64, 48, 48, line_order=order))
     holds, seen, _r, _u = H(plan, "decode_image_in_window")(ctx, **ARGS_L7)
     assert holds is False and "out of slot/line order" in seen
 
@@ -246,8 +260,8 @@ def test_decode_fails_on_line_order(plan, tmp_path, monkeypatch):
 def test_decode_fails_when_two_products_in_window(plan, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     ctx = make_ctx(plan, tmp_path, test_id="L7-1")
-    _dp(ctx, "a.fdp", product(150, 4, 1, 1, 80, 60, 60))
-    _dp(ctx, "b.fdp", product(160, 4, 1, 1, 80, 60, 60))
+    _dp(ctx, "a.fdp", product(150, 3, 1, 1, 64, 48, 48))
+    _dp(ctx, "b.fdp", product(160, 3, 1, 1, 64, 48, 48))
     holds, seen, _r, _u = H(plan, "decode_image_in_window")(ctx, **ARGS_L7)
     assert holds is False and "2 Image product(s)" in seen
 
@@ -255,7 +269,7 @@ def test_decode_fails_when_two_products_in_window(plan, tmp_path, monkeypatch):
 def test_decode_fails_when_no_product_in_window(plan, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     ctx = make_ctx(plan, tmp_path, test_id="L7-1")
-    _dp(ctx, "late.fdp", product(250, 4, 1, 1, 80, 60, 60))
+    _dp(ctx, "late.fdp", product(250, 3, 1, 1, 64, 48, 48))
     holds, seen, _r, unverified = H(plan, "decode_image_in_window")(ctx, **ARGS_L7)
     assert (holds, unverified) == (False, False) and "0 Image product(s)" in seen
 

@@ -16,14 +16,14 @@ Procedure (plan.json, verbatim order):
 """
 import pytest
 
-from suncam import bracket, flush, helper, wait_any
+from suncam import bracket, helper, wait_any
 
 
 @pytest.mark.req('REQ-SunCamMgr-010', 'REQ-SunCamMgr-012', 'REQ-SunCamMgr-023', 'REQ-SunCamMgr-027')
 def test_L2_9(fth_plan, window, check, require, send, bench):
     with window(290, 291):  # W
         require("STD")
-        check('event sunCamMgr.SettingApplied(setting=CAMERA_MODE, value=2) count == 1')
+        check('event sunCamMgr.SettingApplied(setting=CAMERA_MODE, value=3) count == 1')
         check('event sunCamMgr.SettingApplied(setting=CAMERA_MODE, value=1) count == 1')
         check('event sunCamMgr.SettingApplied(setting=EXPOSURE, value=300) count == 3')
         check('event sunCamMgr.ExposureReadback(pushed=300, readback=300) count == 3')
@@ -45,4 +45,3 @@ def test_L2_9(fth_plan, window, check, require, send, bench):
         send("sunCamMgr.EXPOSURE_PRM_SET", [672])
         bench.wait_event("sunCamMgr.ExposureReadback", 5)
         bracket(bench)
-    flush(send)

@@ -1,6 +1,6 @@
 # SunCamRef system test (plan QUAL-SUNCAM, KissCam.SunCamMgr)
 
-Harness: [fprime-testing-harness](https://github.com/LeStarch/fprime-testing-harness) v0.1.2 (`fth`).
+Harness: [fprime-testing-harness](https://github.com/LeStarch/fprime-testing-harness) v0.1.4 (`fth`).
 
 | File | Role |
 | --- | --- |

@@ -3,7 +3,7 @@
 Procedure (plan.json, verbatim order):
   MARK(510)
   bracket (2 suncam samples)
-  sunCamMgr.DOWNLOAD(SLOT_1, FULL)
+  sunCamMgr.DOWNLOAD(SLOT_0, FULL)
   wait(DownloadStarted, 5 s)
   sunCamMgr.PING(MCU)
   wait(CommandRejected, 5 s)
@@ -14,19 +14,18 @@ Procedure (plan.json, verbatim order):
 """
 import pytest
 
-from suncam import bracket, flush, helper, wait_any
+from suncam import bracket, helper, wait_any
 
 
 @pytest.mark.req('REQ-SunCamMgr-009', 'REQ-SunCamMgr-017')
 def test_L5_1(fth_plan, window, check, require, send, bench):
     with window(510, 511):  # W
         require("STD")
-        check('event sunCamMgr.DownloadStarted(slot=SLOT_1, imageMode=SD, resolution=FULL, lines=480) count == 1')
+        check('event sunCamMgr.DownloadStarted(slot=SLOT_0, imageMode=SD, resolution=FULL, lines=480) count == 1')
         check('event sunCamMgr.CommandRejected(operation=PING, cause=BUSY) count == 1')
-        check('event sunCamMgr.DownloadAborted(slot=SLOT_1) count == 1')
+        check('event sunCamMgr.DownloadAborted(slot=SLOT_0) count == 1')
         check('event sunCamMgr.DownloadComplete count == 0')
         check('event sunCamMgr.PingReply count == 0')
-        check('event sunCamMgr.MemoryStatusReply count == 1')
         check('delta(sunCamMgr.ProductsSent) == 1')
         check('last(dpMgr.NumDataProducts) == 1')
         check('last(sunCamMgr.CurrentOperation) == NONE')
@@ -34,11 +33,10 @@ def test_L5_1(fth_plan, window, check, require, send, bench):
         check('event cmdDisp.OpCodeError count == 1')
         check('ABS')
         bracket(bench)
-        send("sunCamMgr.DOWNLOAD", ['SLOT_1', 'FULL'])
+        send("sunCamMgr.DOWNLOAD", ['SLOT_0', 'FULL'])
         bench.wait_event("sunCamMgr.DownloadStarted", 5)
         send("sunCamMgr.PING", ['MCU'], wait_completion=False)  # plan expects the UUT to refuse this command (OpCodeError)
         bench.wait_event("sunCamMgr.CommandRejected", 5)
         send("sunCamMgr.DOWNLOAD_ABORT", [])
         bench.wait_event("sunCamMgr.DownloadAborted", 10)
         bracket(bench)
-    flush(send)

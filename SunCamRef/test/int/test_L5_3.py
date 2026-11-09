@@ -16,7 +16,7 @@ Procedure (plan.json, verbatim order):
 """
 import pytest
 
-from suncam import bracket, flush, helper, wait_any
+from suncam import bracket, helper, wait_any
 
 
 @pytest.mark.req('REQ-SunCamMgr-002', 'REQ-SunCamMgr-004', 'REQ-SunCamMgr-031')
@@ -49,4 +49,3 @@ def test_L5_3(fth_plan, window, check, require, send, bench):
         send("sunCamMgr.SETUP_CAMERA", [])
         bench.wait_event("sunCamMgr.SetupComplete", 15)
         bracket(bench)
-    flush(send)
