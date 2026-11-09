@@ -60,7 +60,7 @@ def read_wrong_register(test_id, command_name, args):
                    "event sunCamMgr.DownloadStarted(slot=SLOT_0, imageMode=SD, resolution=FULL, lines=480) count == 1",
                    "event sunCamMgr.DownloadComplete(slot=SLOT_0, imageMode=SD, resolution=FULL, lines=480, bytes=307200) count == 1",
                    "delta(sunCamMgr.LinesDownloaded) == 480",
-                   "one Image product in window: ImageHeader(slot=0, imageMode=SD, resolution=FULL, width=640, height=480), 480 slot-tagged ImageLine records in order; PNG → dev-evidence/images/L2-5-full.png",
+                   "one Image product in window: ImageHeader(slot=0, imageMode=SD, resolution=FULL, width=640, height=480, exposure=672), 480 slot-tagged ImageLine records in order; PNG → dev-evidence/images/L2-5-full.png",
                    "t(event sunCamMgr.DownloadComplete(slot=SLOT_0, imageMode=SD, resolution=FULL, lines=480, bytes=307200)) - t(sunCamMgr.DOWNLOAD sent) <= 90 s"]})
 def preview_instead_of_full(test_id, command_name, args):
     if test_id == "L2-5" and _is(command_name, "DOWNLOAD") and len(args) == 2 and str(args[1]) == "FULL":
@@ -78,7 +78,7 @@ def preview_instead_of_full(test_id, command_name, args):
                    "delta(sunCamMgr.ProductsSent) == 1",
                    "last(dpMgr.NumDataProducts) == 2",
                    "last(sunCamMgr.SetupState) == READY",
-                   "exactly one Image product in window: ImageHeader(slot=3, imageMode=SD, resolution=PREVIEW, width=64, height=48), 48 lines in order; PNG → dev-evidence/images/L7-1-final.png",
+                   "exactly one Image product in window: ImageHeader(slot=3, imageMode=SD, resolution=PREVIEW, width=64, height=48, exposure=672), 48 lines in order; PNG → dev-evidence/images/L7-1-final.png",
                    "event cmdDisp.OpCodeError count == 0"]})
 def sleep_before_final(test_id, command_name, args):
     if test_id == "L7-1" and _is(command_name, "CAPTURE"):
