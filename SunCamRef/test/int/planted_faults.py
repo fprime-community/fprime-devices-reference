@@ -10,6 +10,7 @@ Helper bodies are completed with the harness at stage 2; their names and contrac
 import json
 import os
 import struct
+import sys
 import zlib
 from pathlib import Path
 
@@ -110,6 +111,11 @@ def _manifest_path(ctx):
                 return Path(args[i + 1])
             if a.startswith("--fth-manifest=") and Path(a.split("=", 1)[1]).is_file():
                 return Path(a.split("=", 1)[1])
+    for i, a in enumerate(sys.argv):  # the live stimulus process: fth run's own pytest argv
+        if a == "--fth-manifest" and i + 1 < len(sys.argv) and Path(sys.argv[i + 1]).is_file():
+            return Path(sys.argv[i + 1])
+        if a.startswith("--fth-manifest=") and Path(a.split("=", 1)[1]).is_file():
+            return Path(a.split("=", 1)[1])
     return None
 
 
@@ -275,7 +281,7 @@ def decode_image_in_window(ctx, slot, image_mode, resolution, width, height, lin
     decision log 10) compares the decoded preview with the pinned test-pattern reference;
     writes dev-evidence/images/<out> (PNG, Bayer as grey)."""
     w = ctx.window
-    dp_dir = Path(ctx.record.path) / "raw" / "dp"
+    dp_dir = Path(getattr(ctx.record, "raw_dir", None) or Path(ctx.record.path) / "raw") / "dp"  # live: the run's raw/ (fth v0.1.6)
     if not dp_dir.is_dir():
         return None, f"{dp_dir}: no DpWriter dump in the record (bench dump recipe)", [], True
     if not w.ok:
@@ -323,5 +329,11 @@ def decode_image_in_window(ctx, slot, image_mode, resolution, width, height, lin
 
 @helper("event_count_at_most")
 def event_count_at_most(ctx, event, max):
-    n = len(ctx.window.events(event))
-    return n <= max, f"{event} count {n} (max {max})"
+    """``event X count <= max`` with evidence: the matching rows' events.jsonl lines; UNVERIFIED only when the window
+    itself is not judgeable (markers incomplete) — an absent event is a count of 0, which holds."""
+    w = ctx.window
+    if not w.ok:
+        return None, "window markers incomplete", [], True
+    rows = w.events(event)
+    refs = [f"events.jsonl:{getattr(r, 'idx', getattr(r, 'line', ''))}" for r in rows[:8]]
+    return len(rows) <= int(max), f"{event} count {len(rows)} (max {max})", refs, False

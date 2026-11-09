@@ -49,6 +49,13 @@ def H(plan, name):
 
 # ---- event_count_at_most ------------------------------------------------------------------------------
 
+def test_event_count_at_most_unverified_when_markers_incomplete(plan, tmp_path):
+    ctx = make_ctx(plan, tmp_path)
+    ctx.window.ok = False
+    holds, seen, refs, unverified = H(plan, "event_count_at_most")(ctx, event="sunCamMgr.ReplyTimeout", max=1)
+    assert (holds, unverified) == (None, True) and refs == []
+
+
 def test_event_count_at_most_pass_fail(plan, tmp_path):
     ctx = make_ctx(plan, tmp_path, events=[(120.0, "sunCamMgr.ReplyTimeout", "x"), (130.0, "sunCamMgr.ReplyTimeout", "x")])
     assert H(plan, "event_count_at_most")(ctx, event="sunCamMgr.ReplyTimeout", max=2)[0] is True

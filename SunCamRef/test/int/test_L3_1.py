@@ -46,7 +46,7 @@ def test_L3_1(fth_plan, window, check, require, send, bench):
         bench.wait_event("prmDb.PrmFileSaveComplete", 10)
         bracket(bench)
     with window(311, 312):  # R
-        check('both markers present')
+        require('both markers present')
         check('ABS')
         check('last(sunCamMgr.SetupState) == NOT_SETUP')
         check('last(sunCamMgr.CurrentOperation) == NONE')

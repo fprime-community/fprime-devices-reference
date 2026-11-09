@@ -13,6 +13,7 @@ serial=$(udevadm info -q property -n "$3" 2>/dev/null | sed -n 's/^ID_SERIAL_SHO
 echo "FTDI serial = $serial ($(readlink -f "$3"))"
 mkdir -p "$rundir"
 stop_recorded "$rundir"
+rm -rf "$rundir/DpCat" "$rundir/PrmDb.dat"   # fresh deployment state: no parameters or products from an earlier run
 install -m 0755 "$image" "$rundir/SunCamRef"
 {
     echo "$(date -u +%FT%TZ) install sha256 $(sha256sum "$image" | cut -d' ' -f1) ($image)"

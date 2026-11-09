@@ -14,15 +14,17 @@ def bracket(bench, timeout=10.0):
 
 
 def wait_any(bench, events, timeout):
-    """plan 'wait(A or B, N s)': the first of the named events within the timeout."""
-    last_error = None
-    for name in events:
-        try:
-            bench.wait_event(name, timeout)
-            return
-        except Exception as exc:  # noqa: BLE001 - the next alternative is tried; the last failure is raised
-            last_error = exc
-    raise last_error
+    """plan 'wait(A or B, N s)': the first of the named events within ONE timeout (all names polled together)."""
+    import time
+    base = {name: bench.count_events(name) for name in events}
+    deadline = time.monotonic() + float(timeout)
+    while True:
+        for name in events:
+            if bench.count_events(name) > base[name]:
+                return name
+        if time.monotonic() >= deadline:
+            raise TimeoutError(f"bench: timed out after {timeout} s waiting for any of {events}")
+        time.sleep(0.2)
 
 
 def helper(plan, name, **args):

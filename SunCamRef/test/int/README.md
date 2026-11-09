@@ -1,14 +1,15 @@
 # SunCamRef system test (plan QUAL-SUNCAM, KissCam.SunCamMgr)
 
-Harness: [fprime-testing-harness](https://github.com/LeStarch/fprime-testing-harness) v0.1.5 (`fth`).
+Harness: [fprime-testing-harness](https://github.com/LeStarch/fprime-testing-harness) v0.1.6 (`fth`).
 
-Pin (campaign fvp-2026-11-07-1, ledger 56): tag `v0.1.5` = tag object `2a354eaab4b3a9bafb8a1665eb1e14bb41b32f99` on commit
-`6d7586df9f90731fbf975c0d0305aa613dfcc7b6`, fetched from the autobot fork
+Pin (campaign fvp-2026-11-07-1): tag `v0.1.6` = tag object `618e1ce63af699354dd28329194f57c06b35fafa` on commit
+`f0ca596790e4b45dfb74045a3f696bb0710ecf74`, fetched from the autobot fork
 `https://github.com/lestarch-autobot/fprime-testing-harness` until it lands upstream:
-`git -C harness fetch --tags https://github.com/lestarch-autobot/fprime-testing-harness && git -C harness checkout --detach v0.1.5 && pip install -e "harness[test]"`.
+`git -C harness fetch --tags https://github.com/lestarch-autobot/fprime-testing-harness && git -C harness checkout --detach v0.1.6 && pip install -e "harness[test]"`.
 v0.1.3 = window-slice fix (dispatchers that log `OpCodeDispatched` before the handler event); v0.1.4 = human-step, run-for-record-only tests
 (`human_step` / `run_in`, verdict DEFERRED); v0.1.5 = positional `human step` procedure line → `bench.human_step()` and
 `fth rfr --defer-human-steps RULING`. The deployment logs the same string at start-up (`HARNESS_DESCRIBE`, read by `fth manifest`).
+v0.1.6 = `count <=|>=|<|>` n, helper metrics judged by their helper, bench `boot_event` epochs and `collect` recipe (data products into `record/raw/dp/` before every live judge), `FTH_MANIFEST` exported to the stimulus, SDD-table check insensitive to the renderer's phase marker (dry-3 / Mode B round-1 findings).
 
 | File | Role |
 | --- | --- |

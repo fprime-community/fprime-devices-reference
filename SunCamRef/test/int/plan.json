@@ -1794,7 +1794,12 @@
      "last(sunCamMgr.SetupState) == READY",
      "last(sunCamMgr.CameraMode) == SD",
      "event cmdDisp.OpCodeError count == 0",
-     "ABS"
+     "event sunCamMgr.QueueOverflow count == 0",
+     "event sunCamMgr.SendFailed count == 0",
+     "event sunCamMgr.ProductAllocationFailed count == 0",
+     "event sunCamMgr.ModeMismatch count == 0",
+     "event sunCamMgr.ReplyTimeout count == 0",
+     "event sunCamMgr.DownloadFailed count == 0"
     ]
    },
    "metrics": [],
@@ -1828,7 +1833,12 @@
     "last(sunCamMgr.SetupState) == READY",
     "last(sunCamMgr.CameraMode) == SD",
     "event cmdDisp.OpCodeError count == 0",
-    "ABS"
+    "event sunCamMgr.QueueOverflow count == 0",
+    "event sunCamMgr.SendFailed count == 0",
+    "event sunCamMgr.ProductAllocationFailed count == 0",
+    "event sunCamMgr.ModeMismatch count == 0",
+    "event sunCamMgr.ReplyTimeout count == 0",
+    "event sunCamMgr.DownloadFailed count == 0"
    ]
   }
  ],
@@ -1857,6 +1867,7 @@
   "13. 2026-11-07 designer — round-3 dispositions: C1 REQ-030 covered by the quiet windows L0-1/L0-2 (period itself UT); C2 the §7-refresh set is listed in entry gates / decision log 10 and shown to the human at the gate. Plan review closed: 0 must fix.",
   "12. 2026-11-07 designer — round-2 dispositions: N1 LibraryVersions format plural + file:line sources; N2 STD/ABS in every window list, checks_note, R window requires markers only; C1 fpp cited; C2 enum values in SDD Table 1 (requirements reopen); C3 W2 duplicate dropped, repeats noted; C4 stateless rewrite fault expect_wrong_exposure_resetup (L2-1 W2 push 300→299); C5 L5-3 fallback + CameraMode check; C6 preview expectation reduced to header + ordered lines, KAT at refresh; C7 L6-2 RXV bracket; C8 wording; C9 read_wrong_register reclassed stimulus; C10 count literal dropped, helper asserts the manifest count. REQ-030 (requirements reopen) added as a UT waiver. No disagreements.",
   "11. 2026-11-07 designer — round-1 dispositions: must-fix M1–M15 all applied (M1 OpCodeError per test; M2 periodic channels + channels_note; M3 marker format; M4 Version payload helper + LibraryVersions; M5 three-window L3-1 with the reset inside R; M6 no window suffixes, one check list per window; M7 dpMgr.NumDataProducts; M8 product files in record/raw/dp + window-bound helper; M9/M10/M14 one declaration per plant site, complete verbatim fails, kinds; M11 fault-free L5-1/L5-3 and new L2-9; M12 L2-9 + L2-7 CAPTURE rejection; M13 shared-edge windows; M15 RXF as delta). Could-fix applied: C1–C8, C10–C18; C9 applied as reclass to stimulus plus the harness-expectation fault read_wrong_register (L2-8). No disagreements.",
-  "10. 2026-11-07 designer (review rounds 1–2) — the §7.4.5 test pattern has no textual generator and its 80×60 preview decimation is unspecified: the preview helpers check header + 60 ordered lines only; a pinned reference (KAT, expect=pattern_kat) is added at the §7 refresh from the first bench preview — a plan change the human sees once."
+  "10. 2026-11-07 designer (review rounds 1–2) — the §7.4.5 test pattern has no textual generator and its 80×60 preview decimation is unspecified: the preview helpers check header + 60 ordered lines only; a pinned reference (KAT, expect=pattern_kat) is added at the §7 refresh from the first bench preview — a plan change the human sees once.",
+  "25. 2026-11-09 anchor — HUMAN RULING (P-1, Mode B round 1): L8-1 window W no longer applies the ABS group as a whole (its member `FrameDiscarded count == 0` contradicted the explicit `FrameDiscarded(cause=MALFORMED, bytes=21) count == 1`); W lists the other ABS members explicitly. No other pass-rule change."
  ]
 }
