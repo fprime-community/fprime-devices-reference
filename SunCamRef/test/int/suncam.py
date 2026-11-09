@@ -14,17 +14,10 @@ def bracket(bench, timeout=10.0):
 
 
 def wait_any(bench, events, timeout):
-    """plan 'wait(A or B, N s)': the first of the named events within ONE timeout (all names polled together)."""
-    import time
-    base = {name: bench.count_events(name) for name in events}
-    deadline = time.monotonic() + float(timeout)
-    while True:
-        for name in events:
-            if bench.count_events(name) > base[name]:
-                return name
-        if time.monotonic() >= deadline:
-            raise TimeoutError(f"bench: timed out after {timeout} s waiting for any of {events}")
-        time.sleep(0.2)
+    """plan 'wait(A or B, N s)': the first of the named events within ONE timeout, counted from the last send
+    (fth v0.1.8 ``bench.wait_any_event``; a baseline taken here, after send() returned, misses a fast reply —
+    dry-6 L2-8). Returns the event name seen."""
+    return bench.wait_any_event(list(events), float(timeout))
 
 
 def helper(plan, name, **args):

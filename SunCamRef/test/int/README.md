@@ -1,16 +1,17 @@
 # SunCamRef system test (plan QUAL-SUNCAM, KissCam.SunCamMgr)
 
-Harness: [fprime-testing-harness](https://github.com/LeStarch/fprime-testing-harness) v0.1.7 (`fth`).
+Harness: [fprime-testing-harness](https://github.com/LeStarch/fprime-testing-harness) v0.1.8 (`fth`).
 
-Pin (campaign fvp-2026-11-07-1): tag `v0.1.7` = tag object `064966935dd7262e346ee3b20506d7a510003986` on commit
-`479a76f46d85e1986f9ecc4a52260bb00da97cba`, fetched from the autobot fork
+Pin (campaign fvp-2026-11-07-1): tag `v0.1.8` = tag object `a84e6285e6c4fd8eba010cf06df639d9407b7bb2` on commit
+`d3842a6ea45388467adf7e03063fc22ff4d996b3`, fetched from the autobot fork
 `https://github.com/lestarch-autobot/fprime-testing-harness` until it lands upstream:
-`git -C harness fetch --tags https://github.com/lestarch-autobot/fprime-testing-harness && git -C harness checkout --detach v0.1.7 && pip install -e "harness[test]"`.
+`git -C harness fetch --tags https://github.com/lestarch-autobot/fprime-testing-harness && git -C harness checkout --detach v0.1.8 && pip install -e "harness[test]"`.
 v0.1.3 = window-slice fix (dispatchers that log `OpCodeDispatched` before the handler event); v0.1.4 = human-step, run-for-record-only tests
 (`human_step` / `run_in`, verdict DEFERRED); v0.1.5 = positional `human step` procedure line → `bench.human_step()` and
 `fth rfr --defer-human-steps RULING`. The deployment logs the same string at start-up (`HARNESS_DESCRIBE`, read by `fth manifest`).
 v0.1.6 = `count <=|>=|<|>` n, helper metrics judged by their helper, bench `boot_event` epochs and `collect` recipe (data products into `record/raw/dp/` before every live judge), `FTH_MANIFEST` exported to the stimulus, SDD-table check insensitive to the renderer's phase marker (dry-3 / Mode B round-1 findings).
 v0.1.7 = refusal fix: `boot_event` epoch rows crashed the live judge (`re.Match` indexed as a dict; SunCamRef dry-4), regression test on verbatim event.log lines.
+v0.1.8 = dry-6 refusal fixes: channel epochs follow the bench `boot_event` rows, START-marker dispatch order decided by same-flush rows only, `bench.wait_any_event()` (plan `wait(A or B, N s)`) with the last-send baseline.
 
 | File | Role |
 | --- | --- |
