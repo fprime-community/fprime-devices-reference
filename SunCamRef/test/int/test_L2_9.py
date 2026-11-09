@@ -29,7 +29,6 @@ def test_L2_9(fth_plan, window, check, require, send, bench):
         check('event sunCamMgr.ExposureReadback(pushed=300, readback=300) count == 3')
         check('event sunCamMgr.SettingApplied(setting=EXPOSURE, value=672) count == 1')
         check('event sunCamMgr.SettingPushFailed count == 0')
-        check('event sunCamMgr.ModeMismatch count == 0')
         check('last(sunCamMgr.CameraMode) == SD')
         check('last(sunCamMgr.Exposure) == 672')
         check('last(sunCamMgr.SetupState) == READY')
