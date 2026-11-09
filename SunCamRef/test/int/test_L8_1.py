@@ -41,8 +41,9 @@ def test_L8_1(fth_plan, window, check, require, send, bench):
         check('last(sunCamMgr.CameraMode) == SD')
         check('event cmdDisp.OpCodeError count == 0')
         check('ABS')
-        # human step (runner prompt: human_step): fth v0.1.4 takes the plan's `human_step` (operator prompt + typed CONFIRM) BEFORE this test's first
-        # command, in phase rfr only (`run_in`); in every other phase the whole test is DEFERRED. Nothing to send here.
+        # human step (runner prompt: human_step): operator prompt + typed `CONFIRM L8-1` here (phase rfr; recorded in record/human/); a no-op
+        # in every other phase, where the test is DEFERRED (fth v0.1.5 positional human step)
+        bench.human_step('L8-1', 'The component is NOT_SETUP. Confirm the camera is OFF (unplug its USB power if it is on, wait 5 s); power it ON; type CONFIRM when its LED/power is on.')
         bench.wait(3)
         send("sunCamMgr.SETUP_CAMERA", [])
         bench.wait_event("sunCamMgr.SetupComplete", 15)
