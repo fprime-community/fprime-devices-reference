@@ -1,11 +1,11 @@
 # SunCamRef system test (plan QUAL-SUNCAM, KissCam.SunCamMgr)
 
-Harness: [fprime-testing-harness](https://github.com/LeStarch/fprime-testing-harness) v0.1.9 (`fth`).
+Harness: [fprime-testing-harness](https://github.com/LeStarch/fprime-testing-harness) v0.1.10 (`fth`).
 
-Pin (campaign fvp-2026-11-07-1): tag `v0.1.9` = tag object `d7a277a7f6bd347eb8eb2fe336e2629e77264cd4` on commit
-`f389ca9f21179716771fb7b66251254aca5a9886`, fetched from the autobot fork
+Pin (campaign fvp-2026-11-07-1): tag `v0.1.10` = tag object `77171e4ed0bea3904bafa39d24ecbd2d55bc6f65` on commit
+`3a58356d1dd2439fe46875dfe75365c50d60db4e`, fetched from the autobot fork
 `https://github.com/lestarch-autobot/fprime-testing-harness` until it lands upstream:
-`git -C harness fetch --tags https://github.com/lestarch-autobot/fprime-testing-harness && git -C harness checkout --detach v0.1.9 && pip install -e "harness[test]"`.
+`git -C harness fetch --tags https://github.com/lestarch-autobot/fprime-testing-harness && git -C harness checkout --detach v0.1.10 && pip install -e "harness[test]"`.
 v0.1.3 = window-slice fix (dispatchers that log `OpCodeDispatched` before the handler event); v0.1.4 = human-step, run-for-record-only tests
 (`human_step` / `run_in`, verdict DEFERRED); v0.1.5 = positional `human step` procedure line → `bench.human_step()` and
 `fth rfr --defer-human-steps RULING`. The deployment logs the same string at start-up (`HARNESS_DESCRIBE`, read by `fth manifest`).
@@ -13,6 +13,7 @@ v0.1.6 = `count <=|>=|<|>` n, helper metrics judged by their helper, bench `boot
 v0.1.7 = refusal fix: `boot_event` epoch rows crashed the live judge (`re.Match` indexed as a dict; SunCamRef dry-4), regression test on verbatim event.log lines.
 v0.1.8 = dry-6 refusal fixes: channel epochs follow the bench `boot_event` rows, START-marker dispatch order decided by same-flush rows only, `bench.wait_any_event()` (plan `wait(A or B, N s)`) with the last-send baseline.
 v0.1.9 = `wait_any_event` returns in a dry run / replay (audit parity, dry-7).
+v0.1.10 = Mode B round-2 S-7/S-8: live judge settles until the channel flush passes t(END) (`timeouts.settle_s`), replay matches the plan's short command name (subtopology markers).
 
 | File | Role |
 | --- | --- |
