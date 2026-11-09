@@ -2,10 +2,18 @@
 
 Harness: [fprime-testing-harness](https://github.com/LeStarch/fprime-testing-harness) v0.1.5 (`fth`).
 
+Pin (campaign fvp-2026-11-07-1, ledger 56): tag `v0.1.5` = tag object `2a354eaab4b3a9bafb8a1665eb1e14bb41b32f99` on commit
+`6d7586df9f90731fbf975c0d0305aa613dfcc7b6`, fetched from the autobot fork
+`https://github.com/lestarch-autobot/fprime-testing-harness` until it lands upstream:
+`git -C harness fetch --tags https://github.com/lestarch-autobot/fprime-testing-harness && git -C harness checkout --detach v0.1.5 && pip install -e "harness[test]"`.
+v0.1.3 = window-slice fix (dispatchers that log `OpCodeDispatched` before the handler event); v0.1.4 = human-step, run-for-record-only tests
+(`human_step` / `run_in`, verdict DEFERRED); v0.1.5 = positional `human step` procedure line → `bench.human_step()` and
+`fth rfr --defer-human-steps RULING`. The deployment logs the same string at start-up (`HARNESS_DESCRIBE`, read by `fth manifest`).
+
 | File | Role |
 | --- | --- |
 | `plan.json`, `plan.md`, `faults-menu.json` | The approved plan — byte copies; any change is a plan change (anchor + reviewer). |
-| `planted_faults.py` | The 5 `@planted_fault` declarations and the 5 `@helper` predicates (`version_matches_manifest`, `delta_mod`, `memory_slot_exposure`, `decode_image_in_window`, `event_count_at_most`); the Image data-product decoder lives here. |
+| `planted_faults.py` | The 5 `@planted_fault` declarations and the 4 `@helper` predicates (`version_matches_manifest`, `delta_mod`, `decode_image_in_window`, `event_count_at_most`; `memory_slot_exposure` retired with Memory Status, not implemented on the hardware); the Image data-product decoder lives here. |
 | `test_<ID>.py` (19) | One stimulus per plan test, procedure transcribed verbatim; `require("STD")` for infrastructure, `check(...)` for every plan check (names are the plan's bytes), `check("ABS")` for the absence group. Metrics are judged by the plugin from `plan.json`. |
 | `suncam.py`, `conftest.py` | `bracket()` (two further suncam-packet samples), `wait_any()`, `helper()` (bind a plan helper to its plan args). |
 | `bench.json`, `bench/*.sh` | Bench recipe for the Raspberry Pi 5 (`flash`, `dump`, `reset`, `gds`, `recorder`, `send`); relative paths from the campaign root. |
