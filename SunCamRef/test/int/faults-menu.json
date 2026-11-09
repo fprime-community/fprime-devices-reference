@@ -49,7 +49,7 @@
           "t(event sunCamMgr.DownloadComplete(slot=SLOT_1, imageMode=SD, resolution=FULL, lines=480, bytes=307200)) - t(sunCamMgr.DOWNLOAD sent) <= 90 s"
         ]
       },
-      "mechanism": "DOWNLOAD(SLOT_1, FULL) rewritten to PREVIEW: 60 lines / 4800 bytes arrive where 480 / 307200 are expected",
+      "mechanism": "DOWNLOAD(SLOT_1, FULL) rewritten to PREVIEW: 48 lines / 3072 bytes arrive where 480 / 307200 are expected",
       "kind": "rewrite",
       "ripples_to": {}
     },
@@ -77,14 +77,13 @@
       "fails": {
         "L7-1": [
           "event sunCamMgr.CaptureComplete(slot=SLOT_4, testPattern=ON, mode=SD) count == 1",
-          "event sunCamMgr.DownloadComplete(slot=SLOT_4, imageMode=SD, resolution=PREVIEW, lines=60, bytes=4800) count == 1",
-          "event sunCamMgr.MemoryStatusReply count == 2",
+          "event sunCamMgr.DownloadComplete(slot=SLOT_4, imageMode=SD, resolution=PREVIEW, lines=48, bytes=3072) count == 1",
           "event sunCamMgr.CommandRejected count == 0",
           "delta(sunCamMgr.ImagesCaptured) == 1",
           "delta(sunCamMgr.ProductsSent) == 1",
           "last(dpMgr.NumDataProducts) == 2",
           "last(sunCamMgr.SetupState) == READY",
-          "exactly one Image product in window: ImageHeader(slot=4, imageMode=SD, resolution=PREVIEW, width=80, height=60), 60 lines in order; PNG \u2192 dev-evidence/images/L7-1-final.png",
+          "exactly one Image product in window: ImageHeader(slot=4, imageMode=SD, resolution=PREVIEW, width=64, height=48), 48 lines in order; PNG \u2192 dev-evidence/images/L7-1-final.png",
           "event cmdDisp.OpCodeError count == 0"
         ]
       },

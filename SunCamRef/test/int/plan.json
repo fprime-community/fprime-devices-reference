@@ -85,9 +85,8 @@
    "REQ-028 exposure readback mismatch: the camera reads back what it stores; unit test",
    "REQ-029 queue-full hooks: unreachable at 10 Hz / 115200 baud without a flood tool; unit tests",
    "REQ-030 exact tick period: unit test; the quiet windows L0-1/L0-2 prove the periodic write on hardware",
-   "REQ-032 no-image / incomplete-HD download: unit test (Memory Status replies are scripted); the bench never leaves a slot empty",
    "REQ-011 camera-refused push: not reachable now that EXPOSURE is range-checked locally; unit tests",
-   "HD FULL download (1920 lines, ≈ 2 min, 1.24 MB product): unit test for size/order; the bench exercises the HD PREVIEW product (L2-10)"
+   "HD FULL download: same 480-line single-slot shape as SD FULL (L2-5); the bench exercises the HD PREVIEW product (L2-10); four-quadrant HD, Memory Status and camera-side parameter errors are not supported on this hardware (SDD §Not supported)"
   ],
   "rationale": "UT baseline 95: the host build forces every error branch; on-target 75: camera-side faults (timeout, 0xFF on most commands, send failure) cannot be forced without power control or a fault injector."
  },
@@ -106,7 +105,7 @@
   "- Camera counters (RXV, RXF, uptime) persist across FSW restarts and runs — never asserted absolutely, only as deltas (mod 256) or ignored.",
   "- Ground system: fprime-gds (harness skill default); recorder fprime-cli events/channels.",
   "- Order: L0-1, L0-2, L2-1 … L2-10, L3-1, L5-1, L5-2, L5-3, L6-1, L6-2, L7-1; every `setup` names the state the previous test leaves.",
-  "- Out of scope: WRITE_REGISTER (excluded by the request), camera power sequencing, HD FULL download on the bench (UT), downlink of products (DpCatalog/FileDownlink are deployment services)."
+  "- Out of scope: WRITE_REGISTER (excluded by the request), camera power sequencing, HD FULL download on the bench (same shape as L2-5), datasheet features the unit does not implement (Memory Status, 80×60 preview, four-quadrant HD, camera-side parameter errors — SDD §Not supported on our hardware), downlink of products (DpCatalog/FileDownlink are deployment services)."
  ],
  "entry_gates": [
   "- Stage-1 close: `fprime-util check` on `KissCam/Components/SunCamMgr` passes with every row of the SDD unit-test list implemented.",
@@ -114,7 +113,7 @@
   "- Marker round-trip: `cmdDisp.CMD_NO_OP_STRING` → `NoOpStringReceived` (format `Received a NO-OP string={}`, CmdDispatcher.fpp) byte-exact in the record (L0-2); event budget ≤ 60 events per test window.",
   "- Bench recipe: `bench.json` (flash = install + restart SunCamRef by recorded PID; dump = copy of the running binary + copy of the DpWriter output directory into record/raw/dp/; reset = restart by recorded PID, settle ≥ 3 s; gds/recorder/send via fprime-gds + fprime-cli on the Pi); `/dev/ttyUSB0` held by no other process.",
   "- Camera precondition: powered on, idle; L2-1 SETUP_CAMERA establishes READY — no test assumes a prior camera state except as its `setup` says.",
-  "- §7 refresh at stage 2 confirms on the bench: event text/enum rendering against the SunCamRef dictionary; test-pattern exposure 0 in MemorySlots (L2-3); READ_REGISTER 0xFFFF error reply (L5-2); slot memory intact across a mode change (L2-9); HD capture duration, HD preview dimensions and Memory Status slot modes after an HD capture and after SD re-captures (L2-10); download durations (L2-4/L2-5)."
+  "- §7 refresh at stage 2 confirms on the bench: event text/enum rendering against the SunCamRef dictionary; MEMORY_STATUS error reply type UNRECOGNISED_COMMAND (L5-2; bench probe H1); slot memory intact across a mode change (L2-9); HD capture duration, HD preview dimensions and Memory Status slot modes after an HD capture and after SD re-captures (L2-10); download durations (L2-4/L2-5)."
  ],
  "levels": [
   "L0 provenance/feasibility · L2 functional · L3 persistence/reset · L5 fault paths · L6 negative controls · L7 final state for independent verification."
@@ -122,9 +121,10 @@
  "metrics_note": "numeric thresholds live in each test's metrics[]; nominal DOWNLOAD PREVIEW ≤ 10 s, FULL ≤ 90 s (115200 baud: 480 × 648 B ≈ 27 s + camera latency, 3× margin; §7.4.6 reply = 6 framing + 2 line-number + 640/80 pixel bytes).",
  "not_covered": [
   "- REQ-004/016/018 (timeout, failed set-up step, failed line), REQ-020 (stray bytes), REQ-021 (mode mismatch), REQ-024 (send/allocation failure), REQ-028 (readback mismatch), REQ-029 (queue full): no plantable mechanism on this bench (no power control, no fault injector, no second bus writer) — unit tests.",
-  "- HD FULL download (1920 lines, 1.24 MB product): unit test; the bench proves the one-product-per-HD-image rule with the PREVIEW product (L2-10)."
+  "- HD FULL download: on this unit the same 480-line single-slot shape as SD FULL (L2-5); the bench exercises the HD PREVIEW product (L2-10). Four-quadrant 1280×960 HD, Memory Status and camera-side parameter errors are not supported on this hardware (SDD §Not supported) and are not tested."
  ],
  "decision_log": [
+  "17. 2026-11-09 designer — design reopen (hardware-true, HUMAN RULING \"it must be functional on the hardware we have\"): Memory Status not implemented on the unit (H1) → removed from L2-3/L2-4/L2-5/L5-1/L2-10/L7-1, MEMORY_STATUS kept standalone as the camera-error stimulus of L5-2 (CameraError UNRECOGNISED_COMMAND, replaces READ_REGISTER 0xFFFF which the camera answers, H4); preview = 64×48 (H3): L2-4/L7-1 lines=48 bytes=3072, PNG 64×48; HD = single slot tagged HD (H5): L2-10 downloads slot 1, 48 lines, 64×48; REQ-032 withdrawn (hardware); L2-8 SettingApplied(EXPOSURE, 672) count 2 (set-up push + explicit push); L2-9 ModeMismatch == 0 declared once (ABS). faults-menu: names unchanged; sleep_before_final `fails` follow the L7-1 constants (lines=48, bytes=3072, 64×48) and lose the MemoryStatusReply check; preview_instead_of_full mechanism text 48 lines / 3072 bytes.",
   "1. 2026-11-06 designer — deployment = SunCamRef in fprime-devices-reference (human-directed in the request; repository was empty). Test deployment in the contract's sense.",
   "2. 2026-11-06 designer — marker = cmdDisp.CMD_NO_OP_STRING / NoOpStringReceived, format `Received a NO-OP string={}` read from Svc/CmdDispatcher/CmdDispatcher.fpp (id 8); probe id reserved_min − 1. L0 desk-checked; bench confirmation at stage 2.",
   "3. 2026-11-06 designer — decoded image evidence (request): the bench dump copies the DpWriter directory into record/raw/dp/ (hashed record); helper decode_image_in_window selects the product by container id and window time, FAILs when absent, writes dev-evidence/images/<test>.png; dev-evidence/README.md lists the PNGs so `fth package` links them in the QL.",
@@ -376,8 +376,8 @@
   },
   "REQ-SunCamMgr-032": {
    "tests": [],
-   "verification": "Unit Test",
-   "note": "an empty slot or a broken HD set needs a never-used slot or an SD capture over an HD image: the bench slots are always written by the plan's own captures; unit test"
+   "verification": "withdrawn (hardware)",
+   "note": "withdrawn (hardware): the Memory-Status-based no-image / HD-set check cannot run on this unit (H1, H5); SDD §Not supported on our hardware"
   }
  },
  "tests": [
@@ -675,8 +675,8 @@
   },
   {
    "id": "L2-3",
-   "title": "Capture test pattern and live frame; memory status",
-   "purpose": "Capture test pattern and live frame; memory status",
+   "title": "Capture test pattern and live frame",
+   "purpose": "Capture test pattern and live frame",
    "covers": [
     "REQ-SunCamMgr-001",
     "REQ-SunCamMgr-013",
@@ -699,8 +699,6 @@
     "wait(CaptureComplete, 10 s)",
     "sunCamMgr.CAPTURE(SLOT_1, OFF)",
     "wait(CaptureComplete, 10 s)",
-    "sunCamMgr.MEMORY_STATUS",
-    "wait(MemoryStatusReply, 5 s)",
     "bracket (2 suncam samples)",
     "MARK(231)"
    ],
@@ -708,15 +706,6 @@
     "STD",
     "event sunCamMgr.CaptureComplete(slot=SLOT_4, testPattern=ON, mode=SD) count == 1",
     "event sunCamMgr.CaptureComplete(slot=SLOT_1, testPattern=OFF, exposure=672, mode=SD) count == 1",
-    "event sunCamMgr.MemoryStatusReply count == 1",
-    {
-     "helper": "memory_slot_exposure",
-     "text": "last(MemorySlots): slot 4 exposure 0 (test pattern, §7.4.3) and slot 1 exposure 672",
-     "args": {
-      "slot4": 0,
-      "slot1": 672
-     }
-    },
     "delta(sunCamMgr.ImagesCaptured) == 2",
     "delta(sunCamMgr.CameraErrors) == 0",
     "last(sunCamMgr.CurrentOperation) == NONE",
@@ -726,11 +715,11 @@
    "metrics": [],
    "rationale": [
     {
-     "pred": "event sunCamMgr.CaptureComplete(slot=SLOT_4, testPattern=ON, mode=SD) count == 1",
-     "text": "§7.4.3: a test-pattern slot is identified by exposure 0 — asserted on MemorySlots (helper), not on the Capture reply whose exposure field for a pattern is unstated; bench to confirm"
+     "pred": "event sunCamMgr.CaptureComplete(slot=SLOT_1, testPattern=OFF, exposure=672, mode=SD) count == 1",
+     "text": "The Capture ACK carries no exposure on this unit (bench probe, H2): CaptureComplete.exposure is the last pushed/read-back exposure (672 from SETUP_CAMERA), REQ-013"
     }
    ],
-   "evidence": "Two CaptureComplete events; MemorySlots shows slot 4 exposure 0 and slot 1 exposure 672.",
+   "evidence": "Two CaptureComplete events (0-byte ACKs, H2: the exposure argument is the component's last pushed value, 672); ImagesCaptured +2.",
    "knobs": []
   },
   {
@@ -761,9 +750,8 @@
    ],
    "checks": [
     "STD",
-    "event sunCamMgr.DownloadStarted(slot=SLOT_4, imageMode=SD, resolution=PREVIEW, lines=60) count == 1",
-    "event sunCamMgr.DownloadComplete(slot=SLOT_4, imageMode=SD, resolution=PREVIEW, lines=60, bytes=4800) count == 1",
-    "event sunCamMgr.MemoryStatusReply count == 1",
+    "event sunCamMgr.DownloadStarted(slot=SLOT_4, imageMode=SD, resolution=PREVIEW, lines=48) count == 1",
+    "event sunCamMgr.DownloadComplete(slot=SLOT_4, imageMode=SD, resolution=PREVIEW, lines=48, bytes=3072) count == 1",
     "event sunCamMgr.LineRetry count == 0",
     "event sunCamMgr.DownloadAborted count == 0",
     "delta(sunCamMgr.LinesDownloaded) == 60",
@@ -771,14 +759,14 @@
     "last(dpMgr.NumDataProducts) == 1",
     {
      "helper": "decode_image_in_window",
-     "text": "exactly one Image product in record/raw/dp/ with header time in [t(START), t(END)]: ImageHeader(slot=4, imageMode=SD, resolution=PREVIEW, width=80, height=60), 60 slot-tagged ImageLine records in order; PNG → dev-evidence/images/L2-4-preview.png",
+     "text": "exactly one Image product in record/raw/dp/ with header time in [t(START), t(END)]: ImageHeader(slot=4, imageMode=SD, resolution=PREVIEW, width=64, height=48), 60 slot-tagged ImageLine records in order; PNG → dev-evidence/images/L2-4-preview.png",
      "args": {
       "slot": 4,
       "image_mode": "SD",
       "resolution": "PREVIEW",
-      "width": 80,
-      "height": 60,
-      "lines": 60,
+      "width": 64,
+      "height": 48,
+      "lines": 48,
       "expect": "none",
       "out": "L2-4-preview.png"
      }
@@ -787,11 +775,11 @@
     "ABS"
    ],
    "metrics": [
-    "t(event sunCamMgr.DownloadComplete(slot=SLOT_4, imageMode=SD, resolution=PREVIEW, lines=60, bytes=4800)) - t(sunCamMgr.DOWNLOAD sent) <= 10 s"
+    "t(event sunCamMgr.DownloadComplete(slot=SLOT_4, imageMode=SD, resolution=PREVIEW, lines=48, bytes=3072)) - t(sunCamMgr.DOWNLOAD sent) <= 10 s"
    ],
    "rationale": [
     {
-     "pred": "t(event sunCamMgr.DownloadComplete(slot=SLOT_4, imageMode=SD, resolution=PREVIEW, lines=60, bytes=4800)) - t(sunCamMgr.DOWNLOAD sent) <= 10 s",
+     "pred": "t(event sunCamMgr.DownloadComplete(slot=SLOT_4, imageMode=SD, resolution=PREVIEW, lines=48, bytes=3072)) - t(sunCamMgr.DOWNLOAD sent) <= 10 s",
      "text": "60 replies × 88 B (6 framing + 2 line-number + 80 pixels, §7.2/§7.4.6) at 11 520 B/s ≈ 0.5 s + camera latency; 10 s bound"
     },
     {
@@ -799,7 +787,7 @@
      "text": "boot-cumulative (DpManager.cpp:48), update-on-change: L2-5 → 2, L2-10 → 3; L3-1 restarts SunCamRef, so L5-1 → 1, L7-1 → 2"
     }
    ],
-   "evidence": "Memory Status then 60 lines: DownloadComplete lines=60 bytes=4800; the product file in the record decodes to dev-evidence/images/L2-4-preview.png (the request's decoded data-product image).",
+   "evidence": "48 lines, no Memory Status (not implemented on this unit, H1): DownloadComplete lines=48 bytes=3072; the product file in the record decodes to dev-evidence/images/L2-4-preview.png (the request's decoded data-product image).",
    "knobs": []
   },
   {
@@ -830,7 +818,6 @@
     "STD",
     "event sunCamMgr.DownloadStarted(slot=SLOT_1, imageMode=SD, resolution=FULL, lines=480) count == 1",
     "event sunCamMgr.DownloadComplete(slot=SLOT_1, imageMode=SD, resolution=FULL, lines=480, bytes=307200) count == 1",
-    "event sunCamMgr.MemoryStatusReply count == 1",
     "event sunCamMgr.DownloadAborted count == 0",
     "delta(sunCamMgr.LinesDownloaded) == 480",
     "delta(sunCamMgr.ProductsSent) == 1",
@@ -1017,7 +1004,7 @@
     "event sunCamMgr.SettingApplied(setting=EXPOSURE, value=300) count == 1",
     "event sunCamMgr.ExposureReadback(pushed=300, readback=300) count == 1",
     "event sunCamMgr.RegisterRead(address=3012, value=300) count == 1",
-    "event sunCamMgr.SettingApplied(setting=EXPOSURE, value=672) count == 1",
+    "event sunCamMgr.SettingApplied(setting=EXPOSURE, value=672) count == 2",
     "last(sunCamMgr.Exposure) == 672",
     "last(sunCamMgr.SetupState) == READY",
     "event cmdDisp.OpCodeError count == 0",
@@ -1028,6 +1015,10 @@
     {
      "pred": "event sunCamMgr.RegisterRead(address=3012, value=300) count == 1",
      "text": "RegisterRead prints the address as 0x{x} (datasheet convention) and the value decimal: 3012 has no hex letters, so the literal is case-independent; 300 = the pushed exposure (§7.4.7)"
+    },
+    {
+     "pred": "event sunCamMgr.SettingApplied(setting=EXPOSURE, value=672) count == 2",
+     "text": "672 is pushed twice in the window: by SETUP_CAMERA (stored EXPOSURE) and by the explicit EXPOSURE_PRM_SET(672) that restores the default"
     }
    ],
    "evidence": "RegisterRead 0x3012 = 300 after a non-default push; defaults restored.",
@@ -1076,7 +1067,6 @@
     "event sunCamMgr.ExposureReadback(pushed=300, readback=300) count == 3",
     "event sunCamMgr.SettingApplied(setting=EXPOSURE, value=672) count == 1",
     "event sunCamMgr.SettingPushFailed count == 0",
-    "event sunCamMgr.ModeMismatch count == 0",
     "last(sunCamMgr.CameraMode) == SD",
     "last(sunCamMgr.Exposure) == 672",
     "last(sunCamMgr.SetupState) == READY",
@@ -1104,14 +1094,14 @@
   },
   {
    "id": "L2-10",
-   "title": "HD image: capture and preview download as one product",
-   "purpose": "HD image: capture and preview download as one product",
+   "title": "HD single-slot capture and preview download → 64×48 product tagged HD",
+   "purpose": "HD single-slot capture and preview download → 64×48 product tagged HD",
    "covers": [
     "REQ-SunCamMgr-013",
     "REQ-SunCamMgr-014",
     "REQ-SunCamMgr-015"
    ],
-   "setup": "READY, SD, exposure 672 (after L2-9); slot contents will be overwritten by the HD capture (slot 4 pattern is re-captured by L7-1, slot 1 SD frame restored here).",
+   "setup": "READY, SD, exposure 672 (after L2-9); the HD capture writes slot 1 only (H5); slot 4 content is not guaranteed after an HD capture, so all four slots are re-captured in SD here (slot 4 pattern re-captured by L7-1).",
    "windows": [
     {
      "name": "W",
@@ -1127,7 +1117,7 @@
     "wait(ExposureReadback, 5 s)",
     "sunCamMgr.CAPTURE(SLOT_1, ON)",
     "wait(CaptureComplete, 10 s)",
-    "sunCamMgr.DOWNLOAD(SLOT_3, PREVIEW)",
+    "sunCamMgr.DOWNLOAD(SLOT_1, PREVIEW)",
     "wait(DownloadComplete, 40 s)",
     "sunCamMgr.CAMERA_MODE_PRM_SET(SD)",
     "wait(ExposureReadback, 5 s)",
@@ -1139,8 +1129,6 @@
     "wait(CaptureComplete, 10 s)",
     "sunCamMgr.CAPTURE(SLOT_4, OFF)",
     "wait(CaptureComplete, 10 s)",
-    "sunCamMgr.MEMORY_STATUS",
-    "wait(MemoryStatusReply, 5 s)",
     "bracket (2 suncam samples)",
     "MARK(2101)"
    ],
@@ -1150,21 +1138,10 @@
     "event sunCamMgr.SettingApplied(setting=CAMERA_MODE, value=1) count == 1",
     "event sunCamMgr.CaptureComplete(slot=SLOT_1, testPattern=ON, mode=HD) count == 1",
     "event sunCamMgr.CaptureComplete(testPattern=OFF, exposure=672, mode=SD) count == 4",
-    "event sunCamMgr.MemoryStatusReply count == 2",
-    {
-     "helper": "memory_slot_exposure",
-     "text": "last(MemorySlots): slots 1-4 exposure 672 (all SD again)",
-     "args": {
-      "slot1": 672,
-      "slot2": 672,
-      "slot3": 672,
-      "slot4": 672
-     }
-    },
-    "event sunCamMgr.DownloadStarted(slot=SLOT_3, imageMode=HD, resolution=PREVIEW, lines=240) count == 1",
-    "event sunCamMgr.DownloadComplete(slot=SLOT_3, imageMode=HD, resolution=PREVIEW, lines=240, bytes=19200) count == 1",
+    "event sunCamMgr.DownloadStarted(slot=SLOT_1, imageMode=HD, resolution=PREVIEW, lines=48) count == 1",
+    "event sunCamMgr.DownloadComplete(slot=SLOT_1, imageMode=HD, resolution=PREVIEW, lines=48, bytes=3072) count == 1",
     "event sunCamMgr.DownloadAborted count == 0",
-    "delta(sunCamMgr.LinesDownloaded) == 240",
+    "delta(sunCamMgr.LinesDownloaded) == 48",
     "delta(sunCamMgr.ProductsSent) == 1",
     "delta(sunCamMgr.ImagesCaptured) == 5",
     "last(dpMgr.NumDataProducts) == 3",
@@ -1172,14 +1149,14 @@
     "last(sunCamMgr.SetupState) == READY",
     {
      "helper": "decode_image_in_window",
-     "text": "one Image product in window: ImageHeader(slot=3, imageMode=HD, resolution=PREVIEW, width=160, height=120), 240 ImageLine records tagged slot 1,2,3,4 × lines 0..59 in order; quadrants assembled; PNG → dev-evidence/images/L2-10-hd-preview.png",
+     "text": "one Image product in window: ImageHeader(slot=1, imageMode=HD, resolution=PREVIEW, width=64, height=48), 48 ImageLine records tagged slot 1, lines 0..47 in order; PNG → dev-evidence/images/L2-10-hd-preview.png",
      "args": {
-      "slot": 3,
+      "slot": 1,
       "image_mode": "HD",
       "resolution": "PREVIEW",
-      "width": 160,
-      "height": 120,
-      "lines": 240,
+      "width": 64,
+      "height": 48,
+      "lines": 48,
       "expect": "none",
       "out": "L2-10-hd-preview.png"
      }
@@ -1188,23 +1165,23 @@
     "ABS"
    ],
    "metrics": [
-    "t(event sunCamMgr.DownloadComplete(slot=SLOT_3, imageMode=HD, resolution=PREVIEW, lines=240, bytes=19200)) - t(sunCamMgr.DOWNLOAD sent) <= 20 s"
+    "t(event sunCamMgr.DownloadComplete(slot=SLOT_1, imageMode=HD, resolution=PREVIEW, lines=48, bytes=3072)) - t(sunCamMgr.DOWNLOAD sent) <= 20 s"
    ],
    "rationale": [
     {
-     "pred": "event sunCamMgr.DownloadStarted(slot=SLOT_3, imageMode=HD, resolution=PREVIEW, lines=240) count == 1",
-     "text": "Memory Status reports slots 1-4 HD (§6.2, Figure 3): the component downloads all four quadrants whatever slot was named; 4 × 60 preview lines"
+     "pred": "event sunCamMgr.DownloadStarted(slot=SLOT_1, imageMode=HD, resolution=PREVIEW, lines=48) count == 1",
+     "text": "HD on this unit is a single-slot 640×480 / 64×48 image whose replies carry mode byte 02 (bench probe, H5): the header imageMode comes from the first Download reply, no Memory Status (H1); the datasheet's four-quadrant 1280×960 image (§6.2, Figure 3) does not occur — SDD §Not supported on our hardware"
     },
     {
-     "pred": "t(event sunCamMgr.DownloadComplete(slot=SLOT_3, imageMode=HD, resolution=PREVIEW, lines=240, bytes=19200)) - t(sunCamMgr.DOWNLOAD sent) <= 20 s",
-     "text": "241 exchanges × 88 B ≈ 2 s at 11 520 B/s + camera latency; HD FULL (≈ 2 min) is a unit test (size and order), not a bench test"
+     "pred": "t(event sunCamMgr.DownloadComplete(slot=SLOT_1, imageMode=HD, resolution=PREVIEW, lines=48, bytes=3072)) - t(sunCamMgr.DOWNLOAD sent) <= 20 s",
+     "text": "49 exchanges × 72 B ≈ 0.4 s at 11 520 B/s + camera latency; HD FULL is the same 480-line shape as SD FULL (L2-5)"
     },
     {
      "pred": "event sunCamMgr.CaptureComplete(slot=SLOT_1, testPattern=ON, mode=HD) count == 1",
-     "text": "HD capture ignores the slot argument (§7.4.5); the test pattern in HD is 1280×640 (Figure 5) — bench to confirm the preview dimensions the camera returns"
+     "text": "An HD Capture writes one slot of the SD footprint (H5); slots 2-3 keep their SD content, slot 4 is not guaranteed, so SD is re-captured into all four slots before L3-1/L5-1/L7-1"
     }
    ],
-   "evidence": "One product for the HD image (four quadrant slots) from a DOWNLOAD naming slot 3; decoded 160×120 PNG; camera back in SD with live frames in all four slots (memory known-SD for L3-1/L5-1/L7-1).",
+   "evidence": "One single-slot product tagged HD from DOWNLOAD(SLOT_1, PREVIEW) after an HD test-pattern capture; decoded 64×48 PNG; camera back in SD with live frames re-captured in all four slots.",
    "knobs": []
   },
   {
@@ -1358,7 +1335,6 @@
     "event sunCamMgr.DownloadAborted(slot=SLOT_1) count == 1",
     "event sunCamMgr.DownloadComplete count == 0",
     "event sunCamMgr.PingReply count == 0",
-    "event sunCamMgr.MemoryStatusReply count == 1",
     "delta(sunCamMgr.ProductsSent) == 1",
     "last(dpMgr.NumDataProducts) == 1",
     "last(sunCamMgr.CurrentOperation) == NONE",
@@ -1382,8 +1358,8 @@
   },
   {
    "id": "L5-2",
-   "title": "Camera error reply on an unsupported register",
-   "purpose": "Camera error reply on an unsupported register",
+   "title": "Camera error reply: Memory Status is unrecognised on this unit",
+   "purpose": "Camera error reply: Memory Status is unrecognised on this unit",
    "covers": [
     "REQ-SunCamMgr-019"
    ],
@@ -1399,8 +1375,8 @@
    "procedure": [
     "MARK(520)",
     "bracket (2 suncam samples)",
-    "sunCamMgr.READ_REGISTER(65535)",
-    "wait(CameraError or RegisterRead, 5 s)",
+    "sunCamMgr.MEMORY_STATUS",
+    "wait(CameraError or MemoryStatusReply, 5 s)",
     "sunCamMgr.PING(MCU)",
     "wait(PingReply, 5 s)",
     "bracket (2 suncam samples)",
@@ -1408,8 +1384,8 @@
    ],
    "checks": [
     "STD",
-    "event sunCamMgr.CameraError(operation=READ_REGISTER, errorType=INVALID_PARAMETER) count == 1",
-    "event sunCamMgr.RegisterRead count == 0",
+    "event sunCamMgr.CameraError(operation=MEMORY_STATUS, errorType=UNRECOGNISED_COMMAND) count == 1",
+    "event sunCamMgr.MemoryStatusReply count == 0",
     "delta(sunCamMgr.CameraErrors) == 1",
     "event sunCamMgr.PingReply count == 1",
     "last(sunCamMgr.SetupState) == READY",
@@ -1419,11 +1395,11 @@
    "metrics": [],
    "rationale": [
     {
-     "pred": "event sunCamMgr.CameraError(operation=READ_REGISTER, errorType=INVALID_PARAMETER) count == 1",
-     "text": "§7.4.9 error type 2 for an unsupported register — bench to confirm; if the camera answers, this test is re-planned 'not supported on hardware' and REQ-019 keeps L5-3"
+     "pred": "event sunCamMgr.CameraError(operation=MEMORY_STATUS, errorType=UNRECOGNISED_COMMAND) count == 1",
+     "text": "The camera refuses nothing else (bench probe, H4: bad slot/line/exposure/register all answer normal frames); Memory Status 0x53/0x54 answers error type 1, unrecognised command (H1) — the only reproducible camera error, §7.4.9; the datasheet's INVALID_PARAMETER for READ_REGISTER 0xFFFF does not occur"
     }
    ],
-   "evidence": "CameraError INVALID_PARAMETER for READ_REGISTER 0xFFFF; component stays READY; the command answers EXECUTION_ERROR.",
+   "evidence": "CameraError UNRECOGNISED_COMMAND for MEMORY_STATUS; no MemoryStatusReply; component stays READY; the command answers EXECUTION_ERROR (OpCodeError 1).",
    "knobs": []
   },
   {
@@ -1729,16 +1705,13 @@
     "wait(CaptureComplete, 10 s)",
     "sunCamMgr.DOWNLOAD(SLOT_4, PREVIEW)",
     "wait(DownloadComplete, 20 s)",
-    "sunCamMgr.MEMORY_STATUS",
-    "wait(MemoryStatusReply, 5 s)",
     "bracket (2 suncam samples)",
     "MARK(711)"
    ],
    "checks": [
     "STD",
     "event sunCamMgr.CaptureComplete(slot=SLOT_4, testPattern=ON, mode=SD) count == 1",
-    "event sunCamMgr.DownloadComplete(slot=SLOT_4, imageMode=SD, resolution=PREVIEW, lines=60, bytes=4800) count == 1",
-    "event sunCamMgr.MemoryStatusReply count == 2",
+    "event sunCamMgr.DownloadComplete(slot=SLOT_4, imageMode=SD, resolution=PREVIEW, lines=48, bytes=3072) count == 1",
     "event sunCamMgr.CommandRejected count == 0",
     "delta(sunCamMgr.ImagesCaptured) == 1",
     "delta(sunCamMgr.ProductsSent) == 1",
@@ -1746,14 +1719,14 @@
     "last(sunCamMgr.SetupState) == READY",
     {
      "helper": "decode_image_in_window",
-     "text": "exactly one Image product in window: ImageHeader(slot=4, imageMode=SD, resolution=PREVIEW, width=80, height=60), 60 lines in order; PNG → dev-evidence/images/L7-1-final.png",
+     "text": "exactly one Image product in window: ImageHeader(slot=4, imageMode=SD, resolution=PREVIEW, width=64, height=48), 48 lines in order; PNG → dev-evidence/images/L7-1-final.png",
      "args": {
       "slot": 4,
       "image_mode": "SD",
       "resolution": "PREVIEW",
-      "width": 80,
-      "height": 60,
-      "lines": 60,
+      "width": 64,
+      "height": 48,
+      "lines": 48,
       "expect": "none",
       "out": "L7-1-final.png"
      }

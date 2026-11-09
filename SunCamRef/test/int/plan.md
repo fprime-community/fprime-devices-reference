@@ -7,7 +7,7 @@
 - Camera counters (RXV, RXF, uptime) persist across FSW restarts and runs — never asserted absolutely, only as deltas (mod 256) or ignored.
 - Ground system: fprime-gds (harness skill default); recorder fprime-cli events/channels.
 - Order: L0-1, L0-2, L2-1 … L2-10, L3-1, L5-1, L5-2, L5-3, L6-1, L6-2, L7-1; every `setup` names the state the previous test leaves.
-- Out of scope: WRITE_REGISTER (excluded by the request), camera power sequencing, HD FULL download on the bench (UT), downlink of products (DpCatalog/FileDownlink are deployment services).
+- Out of scope: WRITE_REGISTER (excluded by the request), camera power sequencing, HD FULL download on the bench (same shape as L2-5), datasheet features the unit does not implement (Memory Status, 80×60 preview, four-quadrant HD, camera-side parameter errors — SDD §Not supported on our hardware), downlink of products (DpCatalog/FileDownlink are deployment services).
 
 ## 1 Entry gates
 - Stage-1 close: `fprime-util check` on `KissCam/Components/SunCamMgr` passes with every row of the SDD unit-test list implemented.
@@ -15,7 +15,7 @@
 - Marker round-trip: `cmdDisp.CMD_NO_OP_STRING` → `NoOpStringReceived` (format `Received a NO-OP string={}`, CmdDispatcher.fpp) byte-exact in the record (L0-2); event budget ≤ 60 events per test window.
 - Bench recipe: `bench.json` (flash = install + restart SunCamRef by recorded PID; dump = copy of the running binary + copy of the DpWriter output directory into record/raw/dp/; reset = restart by recorded PID, settle ≥ 3 s; gds/recorder/send via fprime-gds + fprime-cli on the Pi); `/dev/ttyUSB0` held by no other process.
 - Camera precondition: powered on, idle; L2-1 SETUP_CAMERA establishes READY — no test assumes a prior camera state except as its `setup` says.
-- §7 refresh at stage 2 confirms on the bench: event text/enum rendering against the SunCamRef dictionary; test-pattern exposure 0 in MemorySlots (L2-3); READ_REGISTER 0xFFFF error reply (L5-2); slot memory intact across a mode change (L2-9); HD capture duration, HD preview dimensions and Memory Status slot modes after an HD capture and after SD re-captures (L2-10); download durations (L2-4/L2-5).
+- §7 refresh at stage 2 confirms on the bench: event text/enum rendering against the SunCamRef dictionary; MEMORY_STATUS error reply type UNRECOGNISED_COMMAND (L5-2; bench probe H1); slot memory intact across a mode change (L2-9); HD capture duration, HD preview dimensions and Memory Status slot modes after an HD capture and after SD re-captures (L2-10); download durations (L2-4/L2-5).
 
 ## 2 Test levels
 L0 provenance/feasibility · L2 functional · L3 persistence/reset · L5 fault paths · L6 negative controls · L7 final state for independent verification.
@@ -73,14 +73,14 @@ Evidence:  Two PingReply events with the camera's counters; RXV +1, RXF +0.
 Planted faults:none
 
 ID:        L2-3
-Title:     Capture test pattern and live frame; memory status
-Purpose:   Capture test pattern and live frame; memory status
+Title:     Capture test pattern and live frame
+Purpose:   Capture test pattern and live frame
 Covers:    REQ-SunCamMgr-001, REQ-SunCamMgr-013, REQ-SunCamMgr-022, REQ-SunCamMgr-025
 Setup:     READY, mode SD, exposure 672.
-Procedure: MARK(230); bracket (2 suncam samples); sunCamMgr.CAPTURE(SLOT_4, ON); wait(CaptureComplete, 10 s); sunCamMgr.CAPTURE(SLOT_1, OFF); wait(CaptureComplete, 10 s); sunCamMgr.MEMORY_STATUS; wait(MemoryStatusReply, 5 s); bracket (2 suncam samples); MARK(231).
+Procedure: MARK(230); bracket (2 suncam samples); sunCamMgr.CAPTURE(SLOT_4, ON); wait(CaptureComplete, 10 s); sunCamMgr.CAPTURE(SLOT_1, OFF); wait(CaptureComplete, 10 s); bracket (2 suncam samples); MARK(231).
 Window:    Marker(id=230) … Marker(id=231)
 Pass rule: named checks declared in the integration test (test_L2_3).
-Evidence:  Two CaptureComplete events; MemorySlots shows slot 4 exposure 0 and slot 1 exposure 672.
+Evidence:  Two CaptureComplete events (0-byte ACKs, H2: the exposure argument is the component's last pushed value, 672); ImagesCaptured +2.
 Planted faults:none
 
 ID:        L2-4
@@ -90,8 +90,8 @@ Covers:    REQ-SunCamMgr-001, REQ-SunCamMgr-014, REQ-SunCamMgr-015
 Setup:     READY; slot 4 holds the test pattern (L2-3).
 Procedure: MARK(240); bracket (2 suncam samples); sunCamMgr.DOWNLOAD(SLOT_4, PREVIEW); wait(DownloadComplete, 20 s); bracket (2 suncam samples); MARK(241).
 Window:    Marker(id=240) … Marker(id=241)
-Pass rule: named checks declared in the integration test (test_L2_4). metrics: t(event sunCamMgr.DownloadComplete(slot=SLOT_4, imageMode=SD, resolution=PREVIEW, lines=60, bytes=4800)) - t(sunCamMgr.DOWNLOAD sent) <= 10 s (60 replies × 88 B (6 framing + 2 line-number + 80 pixels, §7.2/§7.4.6) at 11 520 B/s ≈ 0.5 s + camera latency; 10 s bound).
-Evidence:  Memory Status then 60 lines: DownloadComplete lines=60 bytes=4800; the product file in the record decodes to dev-evidence/images/L2-4-preview.png (the request's decoded data-product image).
+Pass rule: named checks declared in the integration test (test_L2_4). metrics: t(event sunCamMgr.DownloadComplete(slot=SLOT_4, imageMode=SD, resolution=PREVIEW, lines=48, bytes=3072)) - t(sunCamMgr.DOWNLOAD sent) <= 10 s (60 replies × 88 B (6 framing + 2 line-number + 80 pixels, §7.2/§7.4.6) at 11 520 B/s ≈ 0.5 s + camera latency; 10 s bound).
+Evidence:  48 lines, no Memory Status (not implemented on this unit, H1): DownloadComplete lines=48 bytes=3072; the product file in the record decodes to dev-evidence/images/L2-4-preview.png (the request's decoded data-product image).
 Planted faults:none
 
 ID:        L2-5
@@ -150,14 +150,14 @@ Evidence:  Each mode push is followed by an exposure push and readback at the no
 Planted faults:none
 
 ID:        L2-10
-Title:     HD image: capture and preview download as one product
-Purpose:   HD image: capture and preview download as one product
+Title:     HD single-slot capture and preview download → 64×48 product tagged HD
+Purpose:   HD single-slot capture and preview download → 64×48 product tagged HD
 Covers:    REQ-SunCamMgr-013, REQ-SunCamMgr-014, REQ-SunCamMgr-015
-Setup:     READY, SD, exposure 672 (after L2-9); slot contents will be overwritten by the HD capture (slot 4 pattern is re-captured by L7-1, slot 1 SD frame restored here).
-Procedure: MARK(2100); bracket (2 suncam samples); sunCamMgr.CAMERA_MODE_PRM_SET(HD); wait(ExposureReadback, 5 s); sunCamMgr.CAPTURE(SLOT_1, ON); wait(CaptureComplete, 10 s); sunCamMgr.DOWNLOAD(SLOT_3, PREVIEW); wait(DownloadComplete, 40 s); sunCamMgr.CAMERA_MODE_PRM_SET(SD); wait(ExposureReadback, 5 s); sunCamMgr.CAPTURE(SLOT_1, OFF); wait(CaptureComplete, 10 s); sunCamMgr.CAPTURE(SLOT_2, OFF); wait(CaptureComplete, 10 s); sunCamMgr.CAPTURE(SLOT_3, OFF); wait(CaptureComplete, 10 s); sunCamMgr.CAPTURE(SLOT_4, OFF); wait(CaptureComplete, 10 s); sunCamMgr.MEMORY_STATUS; wait(MemoryStatusReply, 5 s); bracket (2 suncam samples); MARK(2101).
+Setup:     READY, SD, exposure 672 (after L2-9); the HD capture writes slot 1 only (H5); slot 4 content is not guaranteed after an HD capture, so all four slots are re-captured in SD here (slot 4 pattern re-captured by L7-1).
+Procedure: MARK(2100); bracket (2 suncam samples); sunCamMgr.CAMERA_MODE_PRM_SET(HD); wait(ExposureReadback, 5 s); sunCamMgr.CAPTURE(SLOT_1, ON); wait(CaptureComplete, 10 s); sunCamMgr.DOWNLOAD(SLOT_1, PREVIEW); wait(DownloadComplete, 40 s); sunCamMgr.CAMERA_MODE_PRM_SET(SD); wait(ExposureReadback, 5 s); sunCamMgr.CAPTURE(SLOT_1, OFF); wait(CaptureComplete, 10 s); sunCamMgr.CAPTURE(SLOT_2, OFF); wait(CaptureComplete, 10 s); sunCamMgr.CAPTURE(SLOT_3, OFF); wait(CaptureComplete, 10 s); sunCamMgr.CAPTURE(SLOT_4, OFF); wait(CaptureComplete, 10 s); bracket (2 suncam samples); MARK(2101).
 Window:    Marker(id=2100) … Marker(id=2101)
-Pass rule: named checks declared in the integration test (test_L2_10). metrics: t(event sunCamMgr.DownloadComplete(slot=SLOT_3, imageMode=HD, resolution=PREVIEW, lines=240, bytes=19200)) - t(sunCamMgr.DOWNLOAD sent) <= 20 s (241 exchanges × 88 B ≈ 2 s at 11 520 B/s + camera latency; HD FULL (≈ 2 min) is a unit test (size and order), not a bench test).
-Evidence:  One product for the HD image (four quadrant slots) from a DOWNLOAD naming slot 3; decoded 160×120 PNG; camera back in SD with live frames in all four slots (memory known-SD for L3-1/L5-1/L7-1).
+Pass rule: named checks declared in the integration test (test_L2_10). metrics: t(event sunCamMgr.DownloadComplete(slot=SLOT_1, imageMode=HD, resolution=PREVIEW, lines=48, bytes=3072)) - t(sunCamMgr.DOWNLOAD sent) <= 20 s (49 exchanges × 72 B ≈ 0.4 s at 11 520 B/s + camera latency; HD FULL is the same 480-line shape as SD FULL (L2-5)).
+Evidence:  One single-slot product tagged HD from DOWNLOAD(SLOT_1, PREVIEW) after an HD test-pattern capture; decoded 64×48 PNG; camera back in SD with live frames re-captured in all four slots.
 Planted faults:none
 
 ID:        L3-1
@@ -183,14 +183,14 @@ Evidence:  CommandRejected BUSY then DownloadAborted (ACTIVITY_HI, commanded); t
 Planted faults:none
 
 ID:        L5-2
-Title:     Camera error reply on an unsupported register
-Purpose:   Camera error reply on an unsupported register
+Title:     Camera error reply: Memory Status is unrecognised on this unit
+Purpose:   Camera error reply: Memory Status is unrecognised on this unit
 Covers:    REQ-SunCamMgr-019
 Setup:     READY.
-Procedure: MARK(520); bracket (2 suncam samples); sunCamMgr.READ_REGISTER(65535); wait(CameraError or RegisterRead, 5 s); sunCamMgr.PING(MCU); wait(PingReply, 5 s); bracket (2 suncam samples); MARK(521).
+Procedure: MARK(520); bracket (2 suncam samples); sunCamMgr.MEMORY_STATUS; wait(CameraError or MemoryStatusReply, 5 s); sunCamMgr.PING(MCU); wait(PingReply, 5 s); bracket (2 suncam samples); MARK(521).
 Window:    Marker(id=520) … Marker(id=521)
 Pass rule: named checks declared in the integration test (test_L5_2).
-Evidence:  CameraError INVALID_PARAMETER for READ_REGISTER 0xFFFF; component stays READY; the command answers EXECUTION_ERROR.
+Evidence:  CameraError UNRECOGNISED_COMMAND for MEMORY_STATUS; no MemoryStatusReply; component stays READY; the command answers EXECUTION_ERROR (OpCodeError 1).
 Planted faults:none
 
 ID:        L5-3
@@ -231,7 +231,7 @@ Title:     Final state: test-pattern capture, preview product on disk
 Purpose:   Final state: test-pattern capture, preview product on disk
 Covers:    REQ-SunCamMgr-001, REQ-SunCamMgr-013, REQ-SunCamMgr-015
 Setup:     READY (after L6-2).
-Procedure: MARK(710); bracket (2 suncam samples); sunCamMgr.CAPTURE(SLOT_4, ON); wait(CaptureComplete, 10 s); sunCamMgr.DOWNLOAD(SLOT_4, PREVIEW); wait(DownloadComplete, 20 s); sunCamMgr.MEMORY_STATUS; wait(MemoryStatusReply, 5 s); bracket (2 suncam samples); MARK(711).
+Procedure: MARK(710); bracket (2 suncam samples); sunCamMgr.CAPTURE(SLOT_4, ON); wait(CaptureComplete, 10 s); sunCamMgr.DOWNLOAD(SLOT_4, PREVIEW); wait(DownloadComplete, 20 s); bracket (2 suncam samples); MARK(711).
 Window:    Marker(id=710) … Marker(id=711)
 Pass rule: named checks declared in the integration test (test_L7_1).
 Evidence:  The product written during this window (not any earlier one) decodes to the test pattern; slot 4 is left holding the pattern for the independent read.
@@ -271,22 +271,23 @@ Planted faults:sleep_before_final
 | REQ-SunCamMgr-029 | waived: Unit Test | queue-full hooks are unreachable at 10 Hz / 115200 baud without a flood tool |
 | REQ-SunCamMgr-030 | L0-1, L0-2 (period: UT) | exact tick period is a unit test; ≥ 2 samples of every suncam channel in a quiet window (L0-1, L0-2: nothing changes) is the bench proof of the periodic write |
 | REQ-SunCamMgr-031 | L5-3 (single bench test, never planted) + UT | refused push and refused set-up step on the bench; boundary values 2/960/961 in UT |
-| REQ-SunCamMgr-032 | waived: Unit Test | an empty slot or a broken HD set needs a never-used slot or an SD capture over an HD image: the bench slots are always written by the plan's own captures; unit test |
+| REQ-SunCamMgr-032 | waived: withdrawn (hardware) | withdrawn (hardware): the Memory-Status-based no-image / HD-set check cannot run on this unit (H1, H5); SDD §Not supported on our hardware |
 
 ## 5 Metrics
 - L2-1: t(event sunCamMgr.SetupComplete(mode=SD, exposure=672)) - t(sunCamMgr.SETUP_CAMERA sent) <= 12 s
-- L2-4: t(event sunCamMgr.DownloadComplete(slot=SLOT_4, imageMode=SD, resolution=PREVIEW, lines=60, bytes=4800)) - t(sunCamMgr.DOWNLOAD sent) <= 10 s
+- L2-4: t(event sunCamMgr.DownloadComplete(slot=SLOT_4, imageMode=SD, resolution=PREVIEW, lines=48, bytes=3072)) - t(sunCamMgr.DOWNLOAD sent) <= 10 s
 - L2-5: t(event sunCamMgr.DownloadComplete(slot=SLOT_1, imageMode=SD, resolution=FULL, lines=480, bytes=307200)) - t(sunCamMgr.DOWNLOAD sent) <= 90 s; event sunCamMgr.LineRetry count <= 4
-- L2-10: t(event sunCamMgr.DownloadComplete(slot=SLOT_3, imageMode=HD, resolution=PREVIEW, lines=240, bytes=19200)) - t(sunCamMgr.DOWNLOAD sent) <= 20 s
+- L2-10: t(event sunCamMgr.DownloadComplete(slot=SLOT_1, imageMode=HD, resolution=PREVIEW, lines=48, bytes=3072)) - t(sunCamMgr.DOWNLOAD sent) <= 20 s
 
 ## 6 Fault menu
 Generated from `planted_faults.py` planted fault declarations (`fth planted-faults-menu`): expect_wrong_exposure_push (stimulus; L2-6); expect_wrong_exposure_resetup (stimulus; L2-1); preview_instead_of_full (stimulus; L2-5); read_wrong_register (stimulus; L2-8); sleep_before_final (uut-state; L7-1).
 
 ## 7 Not covered
 - REQ-004/016/018 (timeout, failed set-up step, failed line), REQ-020 (stray bytes), REQ-021 (mode mismatch), REQ-024 (send/allocation failure), REQ-028 (readback mismatch), REQ-029 (queue full): no plantable mechanism on this bench (no power control, no fault injector, no second bus writer) — unit tests.
-- HD FULL download (1920 lines, 1.24 MB product): unit test; the bench proves the one-product-per-HD-image rule with the PREVIEW product (L2-10).
+- HD FULL download: on this unit the same 480-line single-slot shape as SD FULL (L2-5); the bench exercises the HD PREVIEW product (L2-10). Four-quadrant 1280×960 HD, Memory Status and camera-side parameter errors are not supported on this hardware (SDD §Not supported) and are not tested.
 
 ## 8 Decision log
+17. 2026-11-09 designer — design reopen (hardware-true, HUMAN RULING "it must be functional on the hardware we have"): Memory Status not implemented on the unit (H1) → removed from L2-3/L2-4/L2-5/L5-1/L2-10/L7-1, MEMORY_STATUS kept standalone as the camera-error stimulus of L5-2 (CameraError UNRECOGNISED_COMMAND, replaces READ_REGISTER 0xFFFF which the camera answers, H4); preview = 64×48 (H3): L2-4/L7-1 lines=48 bytes=3072, PNG 64×48; HD = single slot tagged HD (H5): L2-10 downloads slot 1, 48 lines, 64×48; REQ-032 withdrawn (hardware); L2-8 SettingApplied(EXPOSURE, 672) count 2 (set-up push + explicit push); L2-9 ModeMismatch == 0 declared once (ABS). faults-menu: names unchanged; sleep_before_final `fails` follow the L7-1 constants (lines=48, bytes=3072, 64×48) and lose the MemoryStatusReply check; preview_instead_of_full mechanism text 48 lines / 3072 bytes.
 1. 2026-11-06 designer — deployment = SunCamRef in fprime-devices-reference (human-directed in the request; repository was empty). Test deployment in the contract's sense.
 2. 2026-11-06 designer — marker = cmdDisp.CMD_NO_OP_STRING / NoOpStringReceived, format `Received a NO-OP string={}` read from Svc/CmdDispatcher/CmdDispatcher.fpp (id 8); probe id reserved_min − 1. L0 desk-checked; bench confirmation at stage 2.
 3. 2026-11-06 designer — decoded image evidence (request): the bench dump copies the DpWriter directory into record/raw/dp/ (hashed record); helper decode_image_in_window selects the product by container id and window time, FAILs when absent, writes dev-evidence/images/<test>.png; dev-evidence/README.md lists the PNGs so `fth package` links them in the QL.
