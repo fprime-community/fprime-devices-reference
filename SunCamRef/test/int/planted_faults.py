@@ -55,7 +55,7 @@ def read_wrong_register(test_id, command_name, args):
 
 
 @planted_fault("preview_instead_of_full", applies_to=["L2-5"], cls="stimulus", kind="rewrite",
-               mechanism="DOWNLOAD(SLOT_1, FULL) rewritten to PREVIEW: 60 lines / 4800 bytes arrive where 480 / 307200 are expected",
+               mechanism="DOWNLOAD(SLOT_1, FULL) rewritten to PREVIEW: 48 lines / 3072 bytes arrive where 480 / 307200 are expected (H3)",
                fails={"L2-5": [
                    "event sunCamMgr.DownloadStarted(slot=SLOT_1, imageMode=SD, resolution=FULL, lines=480) count == 1",
                    "event sunCamMgr.DownloadComplete(slot=SLOT_1, imageMode=SD, resolution=FULL, lines=480, bytes=307200) count == 1",
@@ -69,17 +69,16 @@ def preview_instead_of_full(test_id, command_name, args):
 
 
 @planted_fault("sleep_before_final", applies_to=["L7-1"], cls="uut-state", kind="insert",
-               mechanism="SLEEP inserted before CAPTURE(SLOT_4, ON): the component is NOT_SETUP, CAPTURE/DOWNLOAD/MEMORY_STATUS are rejected NOT_READY, no product is written in the window",
+               mechanism="SLEEP inserted before CAPTURE(SLOT_4, ON): the component is NOT_SETUP, CAPTURE/DOWNLOAD are rejected NOT_READY, no product is written in the window",
                fails={"L7-1": [
                    "event sunCamMgr.CaptureComplete(slot=SLOT_4, testPattern=ON, mode=SD) count == 1",
-                   "event sunCamMgr.DownloadComplete(slot=SLOT_4, imageMode=SD, resolution=PREVIEW, lines=60, bytes=4800) count == 1",
-                   "event sunCamMgr.MemoryStatusReply count == 2",
+                   "event sunCamMgr.DownloadComplete(slot=SLOT_4, imageMode=SD, resolution=PREVIEW, lines=48, bytes=3072) count == 1",
                    "event sunCamMgr.CommandRejected count == 0",
                    "delta(sunCamMgr.ImagesCaptured) == 1",
                    "delta(sunCamMgr.ProductsSent) == 1",
                    "last(dpMgr.NumDataProducts) == 2",
                    "last(sunCamMgr.SetupState) == READY",
-                   "exactly one Image product in window: ImageHeader(slot=4, imageMode=SD, resolution=PREVIEW, width=80, height=60), 60 lines in order; PNG → dev-evidence/images/L7-1-final.png",
+                   "exactly one Image product in window: ImageHeader(slot=4, imageMode=SD, resolution=PREVIEW, width=64, height=48), 48 lines in order; PNG → dev-evidence/images/L7-1-final.png",
                    "event cmdDisp.OpCodeError count == 0"]})
 def sleep_before_final(test_id, command_name, args):
     if test_id == "L7-1" and _is(command_name, "CAPTURE"):
@@ -193,10 +192,10 @@ _HDR_HASH = 4
 _DATA_OFFSET = _HDR.size + _HDR_HASH
 _RECORD_ID = struct.Struct(">I")
 _ARRAY_SIZE = struct.Struct(">Q")
-_IMAGE_HEADER = struct.Struct(">BBBHHBH")  # slot, imageMode, resolution, width, height, cameraMode, linesExpected
+_IMAGE_HEADER = struct.Struct(">BBBHHHH")  # slot, imageMode, resolution, width, height, exposure, linesExpected (SDD Table 4)
 _MODE = {1: "SD", 2: "HD", 0: "SLEEP"}
 _RESOLUTION = {0: "FULL", 1: "PREVIEW"}
-_LINE_PIXELS = {"FULL": 640, "PREVIEW": 80}
+_LINE_PIXELS = {"FULL": 640, "PREVIEW": 64}  # bench H3 (datasheet says 80)
 
 
 def parse_product(data):
@@ -212,7 +211,7 @@ def parse_product(data):
         (rid,) = _RECORD_ID.unpack_from(data, pos)
         pos += _RECORD_ID.size
         if rid == 0:
-            header = dict(zip(("slot", "imageMode", "resolution", "width", "height", "cameraMode", "linesExpected"),
+            header = dict(zip(("slot", "imageMode", "resolution", "width", "height", "exposure", "linesExpected"),
                               _IMAGE_HEADER.unpack_from(data, pos)))
             pos += _IMAGE_HEADER.size
         elif rid == 1:
@@ -242,29 +241,27 @@ def write_png(path, width, height, rows):
 
 
 def assemble(header, lines):
-    """Place slot-tagged lines in the image: SD = one slot; HD = slots 1-4 as TL/TR/BL/BR quadrants (SDD Fig. 3)."""
+    """Place the lines in the image: every product is one slot, SD or HD alike (SDD §Not supported on our hardware, H5)."""
     width, height = header["width"], header["height"]
     n = _LINE_PIXELS[_RESOLUTION[header["resolution"]]]
-    sub_h = height if header["imageMode"] != 2 else height // 2
     image = [bytearray(width) for _ in range(height)]
-    for slot, line, px in lines:
-        if header["imageMode"] == 2:
-            x0, y0 = n * ((slot - 1) % 2), sub_h * ((slot - 1) // 2)
-        else:
-            x0, y0 = 0, 0
-        if 0 <= line < sub_h and len(px) == n and x0 + n <= width:
-            image[y0 + line][x0:x0 + n] = px
+    for _slot, line, px in lines:
+        if 0 <= line < height and len(px) == n and n <= width:
+            image[line][0:n] = px
     return image
 
 
-def check_product(parsed, slot, image_mode, resolution, width, height, lines):
-    """Compare a parsed product with the expected ImageHeader and line sequence -> (holds, problems)."""
+def check_product(parsed, slot, image_mode, resolution, width, height, lines, exposure=None):
+    """Compare a parsed product with the expected ImageHeader and line sequence -> (holds, problems).
+    `exposure` (SDD Table 4: the component's last pushed/read-back exposure) is checked only when given."""
     h = parsed["header"]
     problems = []
     if h is None:
         return False, ["no ImageHeader record"]
     want = {"slot": int(slot), "imageMode": {"SD": 1, "HD": 2}[image_mode], "resolution": {"FULL": 0, "PREVIEW": 1}[resolution],
             "width": int(width), "height": int(height), "linesExpected": int(lines)}
+    if exposure is not None:
+        want["exposure"] = int(exposure)
     for k, v in want.items():
         if h[k] != v:
             problems.append(f"header.{k}={h[k]} (expected {v})")
@@ -272,8 +269,7 @@ def check_product(parsed, slot, image_mode, resolution, width, height, lines):
     got = parsed["lines"]
     if len(got) != int(lines):
         problems.append(f"{len(got)} ImageLine records (expected {lines})")
-    per_slot = int(lines) // 4 if image_mode == "HD" else int(lines)
-    expected = [((i // per_slot) + 1 if image_mode == "HD" else int(slot), i % per_slot) for i in range(int(lines))]
+    expected = [(int(slot), i) for i in range(int(lines))]  # one slot per product, SD or HD (H5)
     bad_order = [i for i, ((s, l, px), (es, el)) in enumerate(zip(got, expected)) if (s, l) != (es, el)]
     if bad_order:
         problems.append(f"{len(bad_order)} record(s) out of slot/line order, first at index {bad_order[0]}: {got[bad_order[0]][:2]}")
@@ -290,11 +286,11 @@ def test_pattern_kat(image, width, height):
 
 
 @helper("decode_image_in_window")
-def decode_image_in_window(ctx, slot, image_mode, resolution, width, height, lines, expect, out):
+def decode_image_in_window(ctx, slot, image_mode, resolution, width, height, lines, expect, out, exposure=None):
     """Reads record/raw/dp/ (copied from the DpWriter directory by the bench dump recipe), selects the
     Image-container product whose header time lies in [t(START), t(END)] of the window (FSW time);
     FAILs when none or more than one exists; decodes ImageHeader + ImageLine records, checks
-    header fields (incl. imageMode), `lines` slot-tagged records in slot then line order (HD: slots 1-4 assembled as quadrants); expect="pattern_kat" (added at the §7 refresh,
+    header fields (incl. imageMode and, when given, exposure), `lines` records tagged with the slot in line order (one slot per product, SD or HD; H5); expect="pattern_kat" (added at the §7 refresh,
     decision log 10) compares the decoded preview with the pinned test-pattern reference;
     writes dev-evidence/images/<out> (PNG, Bayer as grey)."""
     w = ctx.window
@@ -321,7 +317,7 @@ def decode_image_in_window(ctx, slot, image_mode, resolution, width, height, lin
     if len(in_window) != 1:
         return False, f"{len(in_window)} Image product(s) with header time in [{t0:.3f}, {t1:.3f}] s under raw/dp/ ({[f.name for f, _ in in_window]}; undecodable: {broken})", refs, False
     f, parsed = in_window[0]
-    holds, problems = check_product(parsed, slot, image_mode, resolution, width, height, lines)
+    holds, problems = check_product(parsed, slot, image_mode, resolution, width, height, lines, exposure)
     refs.append(f"raw/dp/{f.name}")
     seen = f"{f.name}: header {parsed['header']}, {len(parsed['lines'])} ImageLine records"
     if parsed["header"] is not None and parsed["lines"]:
