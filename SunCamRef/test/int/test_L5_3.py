@@ -16,7 +16,7 @@ Procedure (plan.json, verbatim order):
 """
 import pytest
 
-from suncam import bracket, helper, wait_any
+from suncam import bracket, flush, helper, wait_any
 
 
 @pytest.mark.req('REQ-SunCamMgr-002', 'REQ-SunCamMgr-004', 'REQ-SunCamMgr-031')
@@ -40,12 +40,13 @@ def test_L5_3(fth_plan, window, check, require, send, bench):
         check('event cmdDisp.OpCodeError count == 1')
         check('ABS')
         bracket(bench)
-        send("sunCamMgr.EXPOSURE_PRM_SET", [1])
+        send("sunCamMgr.EXPOSURE_PRM_SET", [1], wait_completion=False)  # plan expects the UUT to refuse this command (OpCodeError)
         bench.wait_event("sunCamMgr.SettingRejected", 5)
-        send("sunCamMgr.SETUP_CAMERA", [])
+        send("sunCamMgr.SETUP_CAMERA", [], wait_completion=False)  # plan expects the UUT to refuse this command (OpCodeError)
         bench.wait_event("sunCamMgr.SetupFailed", 15)
         send("sunCamMgr.EXPOSURE_PRM_SET", [672])
         bench.wait(2)
         send("sunCamMgr.SETUP_CAMERA", [])
         bench.wait_event("sunCamMgr.SetupComplete", 15)
         bracket(bench)
+    flush(send)

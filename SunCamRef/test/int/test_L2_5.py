@@ -10,7 +10,7 @@ Procedure (plan.json, verbatim order):
 """
 import pytest
 
-from suncam import bracket, helper, wait_any
+from suncam import bracket, flush, helper, wait_any
 
 
 @pytest.mark.req('REQ-SunCamMgr-014')
@@ -32,3 +32,4 @@ def test_L2_5(fth_plan, window, check, require, send, bench):
         send("sunCamMgr.DOWNLOAD", ['SLOT_1', 'FULL'])
         bench.wait_event("sunCamMgr.DownloadComplete", 120)
         bracket(bench)
+    flush(send)

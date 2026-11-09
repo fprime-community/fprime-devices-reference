@@ -12,7 +12,7 @@ Procedure (plan.json, verbatim order):
 """
 import pytest
 
-from suncam import bracket, helper, wait_any
+from suncam import bracket, flush, helper, wait_any
 
 
 @pytest.mark.req('REQ-SunCamMgr-019')
@@ -27,8 +27,9 @@ def test_L5_2(fth_plan, window, check, require, send, bench):
         check('event cmdDisp.OpCodeError count == 1')
         check('ABS')
         bracket(bench)
-        send("sunCamMgr.READ_REGISTER", [65535])
+        send("sunCamMgr.READ_REGISTER", [65535], wait_completion=False)  # plan expects the UUT to refuse this command (OpCodeError)
         wait_any(bench, ["sunCamMgr.CameraError", "sunCamMgr.RegisterRead"], 5)
         send("sunCamMgr.PING", ['MCU'])
         bench.wait_event("sunCamMgr.PingReply", 5)
         bracket(bench)
+    flush(send)

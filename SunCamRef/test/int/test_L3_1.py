@@ -26,7 +26,7 @@ Procedure (plan.json, verbatim order):
 """
 import pytest
 
-from suncam import bracket, helper, wait_any
+from suncam import bracket, flush, helper, wait_any
 
 
 @pytest.mark.req('REQ-SunCamMgr-003', 'REQ-SunCamMgr-005', 'REQ-SunCamMgr-010', 'REQ-SunCamMgr-027')
@@ -72,3 +72,4 @@ def test_L3_1(fth_plan, window, check, require, send, bench):
         send("prmDb.PRM_SAVE_FILE", [])
         bench.wait_event("prmDb.PrmFileSaveComplete", 10)
         bracket(bench)
+    flush(send)

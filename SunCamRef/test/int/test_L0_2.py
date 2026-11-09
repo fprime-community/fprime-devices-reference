@@ -9,7 +9,7 @@ Procedure (plan.json, verbatim order):
 """
 import pytest
 
-from suncam import bracket, helper, wait_any
+from suncam import bracket, flush, helper, wait_any
 
 
 @pytest.mark.req('REQ-SunCamMgr-030')
@@ -20,5 +20,6 @@ def test_L0_2(fth_plan, window, check, require, send, bench):
         check('event cmdDisp.OpCodeError count == 0')
         check('ABS')
         bracket(bench)
-        send("cmdDisp.CMD_NO_OP_STRING", ["4294901759"])  # in-window marker
+        send("cmdDisp.CMD_NO_OP_STRING", [4294901759])  # in-window marker
         bracket(bench)
+    flush(send)

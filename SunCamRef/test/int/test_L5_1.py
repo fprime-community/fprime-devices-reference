@@ -14,7 +14,7 @@ Procedure (plan.json, verbatim order):
 """
 import pytest
 
-from suncam import bracket, helper, wait_any
+from suncam import bracket, flush, helper, wait_any
 
 
 @pytest.mark.req('REQ-SunCamMgr-009', 'REQ-SunCamMgr-017')
@@ -36,8 +36,9 @@ def test_L5_1(fth_plan, window, check, require, send, bench):
         bracket(bench)
         send("sunCamMgr.DOWNLOAD", ['SLOT_1', 'FULL'])
         bench.wait_event("sunCamMgr.DownloadStarted", 5)
-        send("sunCamMgr.PING", ['MCU'])
+        send("sunCamMgr.PING", ['MCU'], wait_completion=False)  # plan expects the UUT to refuse this command (OpCodeError)
         bench.wait_event("sunCamMgr.CommandRejected", 5)
         send("sunCamMgr.DOWNLOAD_ABORT", [])
         bench.wait_event("sunCamMgr.DownloadAborted", 10)
         bracket(bench)
+    flush(send)

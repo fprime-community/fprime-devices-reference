@@ -23,7 +23,7 @@ Procedure (plan.json, verbatim order):
 """
 import pytest
 
-from suncam import bracket, helper, wait_any
+from suncam import bracket, flush, helper, wait_any
 
 
 @pytest.mark.req('REQ-SunCamMgr-002', 'REQ-SunCamMgr-007', 'REQ-SunCamMgr-008', 'REQ-SunCamMgr-026')
@@ -54,12 +54,13 @@ def test_L6_1(fth_plan, window, check, require, send, bench):
         bracket(bench)
         send("sunCamMgr.PING", ['MCU'])
         bench.wait_event("sunCamMgr.PingReply", 5)
-        send("sunCamMgr.CAPTURE", ['SLOT_1', 'OFF'])
-        send("sunCamMgr.DOWNLOAD", ['SLOT_1', 'PREVIEW'])
-        send("sunCamMgr.MEMORY_STATUS", [])
-        send("sunCamMgr.READ_REGISTER", [12306])
+        send("sunCamMgr.CAPTURE", ['SLOT_1', 'OFF'], wait_completion=False)  # plan expects the UUT to refuse this command (OpCodeError)
+        send("sunCamMgr.DOWNLOAD", ['SLOT_1', 'PREVIEW'], wait_completion=False)  # plan expects the UUT to refuse this command (OpCodeError)
+        send("sunCamMgr.MEMORY_STATUS", [], wait_completion=False)  # plan expects the UUT to refuse this command (OpCodeError)
+        send("sunCamMgr.READ_REGISTER", [12306], wait_completion=False)  # plan expects the UUT to refuse this command (OpCodeError)
         send("sunCamMgr.DOWNLOAD_ABORT", [])
         bench.wait(2)
         send("sunCamMgr.PING", ['MCU'])
         bench.wait_event("sunCamMgr.PingReply", 5)
         bracket(bench)
+    flush(send)

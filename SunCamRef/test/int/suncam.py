@@ -28,3 +28,12 @@ def wait_any(bench, events, timeout):
 def helper(plan, name, **args):
     """A plan helper predicate bound to its plan arguments: ``check(text, helper(fth_plan, "delta_mod", channel=..., ...))``."""
     return partial(plan.registry.helpers[name], **args)
+
+
+def flush(send):
+    """One harmless command after a test's last window: fth v0.1.2 closes a window at the END marker event plus the
+    dispatcher rows that follow it up to the next OpCodeDispatched (its pilot UUT logged OpCodeDispatched after the
+    handler); this F´ logs OpCodeDispatched before the handler, so without a following command the END marker's own
+    dispatch row is the one before the START marker's and `commands_sent == count(OpCodeDispatched)` is off by one
+    for the last window of a run."""
+    send("cmdDisp.CMD_NO_OP", [])

@@ -9,7 +9,7 @@ Procedure (plan.json, verbatim order):
 """
 import pytest
 
-from suncam import bracket, helper, wait_any
+from suncam import bracket, flush, helper, wait_any
 
 
 @pytest.mark.req('REQ-SunCamMgr-002', 'REQ-SunCamMgr-030')
@@ -29,3 +29,4 @@ def test_L0_1(fth_plan, window, check, require, send, bench):
         bracket(bench)
         send("version.VERSION", ['ALL'])
         bracket(bench)
+    flush(send)
