@@ -79,7 +79,7 @@
   },
   "not_covered_ack": [
    "REQ-004/016/018 timeout and failed-step paths: the bench camera answers and cannot be silenced (no power control); unit tests cover them",
-   "REQ-020 stray/malformed/late frames: no second writer on the bus; unit tests cover them",
+   "REQ-020 stray/malformed/late frames and the power-on banner (H7, 21 unframed bytes): no second writer on the bus and a camera power cycle is performed only by the human on request; unit tests cover them (testMalformedAndStrayFrames, testPowerOnBanner)",
    "REQ-021 mode mismatch while READY: needs a camera power-cycle; unit test",
    "REQ-024 UART send failure and product allocation failure: not plantable without breaking the deployment; unit tests",
    "REQ-028 exposure readback mismatch: the camera reads back what it stores; unit test",
@@ -120,10 +120,11 @@
  ],
  "metrics_note": "numeric thresholds live in each test's metrics[]; nominal DOWNLOAD PREVIEW ≤ 10 s, FULL ≤ 90 s (115200 baud: 480 × 648 B ≈ 27 s + camera latency, 3× margin; §7.4.6 reply = 6 framing + 2 line-number + 640/80 pixel bytes).",
  "not_covered": [
-  "- REQ-004/016/018 (timeout, failed set-up step, failed line), REQ-020 (stray bytes), REQ-021 (mode mismatch), REQ-024 (send/allocation failure), REQ-028 (readback mismatch), REQ-029 (queue full): no plantable mechanism on this bench (no power control, no fault injector, no second bus writer) — unit tests.",
+  "- REQ-004/016/018 (timeout, failed set-up step, failed line), REQ-020 (stray bytes, power-on banner H7), REQ-021 (mode mismatch), REQ-024 (send/allocation failure), REQ-028 (readback mismatch), REQ-029 (queue full): no plantable mechanism on this bench (no power control, no fault injector, no second bus writer) — unit tests.",
   "- HD FULL download: on this unit the same 480-line single-slot shape as SD FULL (L2-5); the bench exercises the HD PREVIEW product (L2-10). Four-quadrant 1280×960 HD, Memory Status and camera-side parameter errors are not supported on this hardware (SDD §Not supported) and are not tested."
  ],
  "decision_log": [
+  "18. 2026-11-09 designer — H7 power-on banner ('MVP Camera V2 RS422\\r\\n', 21 unframed bytes captured by the orchestrator while the human power-cycled the camera): REQ-020 reworded to cover bytes outside a frame, unit test testPowerOnBanner added; no system test — the stimulus needs a camera power cycle, which the bench procedure reserves to the human (no hub power cycling); UT-only waiver recorded here and in not_covered.",
   "17. 2026-11-09 designer — plan reopen-2 dispositions (hardware-true): N1 planted_faults.py decode path to bench geometry (PREVIEW 64 px, ImageHeader >BBBHHHH with exposure, no cameraMode, single-slot assembly for SD and HD; helper arg exposure=672); N2 planted_faults.py fails/mechanism strings moved to the L7-1/L2-5 constants and faults-menu.json regenerated with `fth planted-faults-menu` (never hand-edited again); N3 L2-4 LinesDownloaded == 48 and texts; N4 DownloadComplete.bytes = image bytes received (lines × 640 / × 64) — SDD Behavior, Events row and FPP doc-comment state the unit; plan literals 3072 / 307200 stand. C1 refresh gate 6 reworded (H5); C2 CameraError count == 0 in L2-4/L2-5/L2-10/L7-1 (no exact Exchanges delta: REQ-016 retries); C3 unit-test list keyed testDownloadHdSingleSlot; C4 L2-10 keep/withdraw paragraph in SDD §Not supported. Requirements reopen-5 split REQ-013 → REQ-033 (Capture exposure reporting): covered by L2-3 and L2-10. Mode B step 3b: KAT for the decode helper (synthetic 64×48 and 640×480 containers) is owed by the harness child.",
   "17. 2026-11-09 designer — design reopen (hardware-true, HUMAN RULING \"it must be functional on the hardware we have\"): Memory Status not implemented on the unit (H1) → removed from L2-3/L2-4/L2-5/L5-1/L2-10/L7-1, MEMORY_STATUS kept standalone as the camera-error stimulus of L5-2 (CameraError UNRECOGNISED_COMMAND, replaces READ_REGISTER 0xFFFF which the camera answers, H4); preview = 64×48 (H3): L2-4/L7-1 lines=48 bytes=3072, PNG 64×48; HD = single slot tagged HD (H5): L2-10 downloads slot 1, 48 lines, 64×48; REQ-032 withdrawn (hardware); L2-8 SettingApplied(EXPOSURE, 672) count 2 (set-up push + explicit push); L2-9 ModeMismatch == 0 declared once (ABS). faults-menu: names unchanged; sleep_before_final `fails` follow the L7-1 constants (lines=48, bytes=3072, 64×48) and lose the MemoryStatusReply check; preview_instead_of_full mechanism text 48 lines / 3072 bytes.",
   "1. 2026-11-06 designer — deployment = SunCamRef in fprime-devices-reference (human-directed in the request; repository was empty). Test deployment in the contract's sense.",
@@ -295,7 +296,7 @@
   "REQ-SunCamMgr-020": {
    "tests": [],
    "verification": "Unit Test",
-   "note": "stray/malformed bytes need a second writer on the bus"
+   "note": "stray/malformed bytes need a second writer on the bus; the power-on banner (H7) needs a camera power cycle (human only) — testPowerOnBanner"
   },
   "REQ-SunCamMgr-021": {
    "tests": [],
