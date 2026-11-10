@@ -1,11 +1,11 @@
 # SunCamRef system test (plan QUAL-SUNCAM, KissCam.SunCamMgr)
 
-Harness: [fprime-testing-harness](https://github.com/LeStarch/fprime-testing-harness) v0.1.11 (`fth`).
+Harness: [fprime-testing-harness](https://github.com/LeStarch/fprime-testing-harness) v0.1.12 (`fth`).
 
-Pin (campaign fvp-2026-11-07-1): tag `v0.1.11` = tag object `a1d2b78c2f27a816dbc73196b8cfd7e93aba4b21` on commit
-`1e621245456954857a81f68851549888057227cb`, fetched from the autobot fork
+Pin (campaign fvp-2026-11-07-1): tag `v0.1.12` = tag object `e3fdae24f3ac609d9131867de6678b4ce502fc61` on commit
+`a69e7b67dcadbfdfe89fe4f94cb23d22596eae9e`, fetched from the autobot fork
 `https://github.com/lestarch-autobot/fprime-testing-harness` until it lands upstream:
-`git -C harness fetch --tags https://github.com/lestarch-autobot/fprime-testing-harness && git -C harness checkout --detach v0.1.11 && pip install -e "harness[test]"`.
+`git -C harness fetch --tags https://github.com/lestarch-autobot/fprime-testing-harness && git -C harness checkout --detach v0.1.12 && pip install -e "harness[test]"`.
 v0.1.3 = window-slice fix (dispatchers that log `OpCodeDispatched` before the handler event); v0.1.4 = human-step, run-for-record-only tests
 (`human_step` / `run_in`, verdict DEFERRED); v0.1.5 = positional `human step` procedure line → `bench.human_step()` and
 `fth rfr --defer-human-steps RULING`. The deployment logs the same string at start-up (`HARNESS_DESCRIBE`, read by `fth manifest`).
@@ -15,6 +15,7 @@ v0.1.8 = dry-6 refusal fixes: channel epochs follow the bench `boot_event` rows,
 v0.1.9 = `wait_any_event` returns in a dry run / replay (audit parity, dry-7).
 v0.1.10 = Mode B round-2 S-7/S-8: live judge settles until the channel flush passes t(END) (`timeouts.settle_s`), replay matches the plan's short command name (subtopology markers).
 v0.1.11 = helper artifacts: `decode_image_in_window` writes its PNG via `ctx.artifact()` into `<run>/runner/artifacts/<test>/`; `fth render-ql` ships them beside the pages with the source `.fdp` sha256 and an index gallery in test order (L2-5's real-scene FULL first — Captain ruling); `fth package` ships `artifacts/`.
+v0.1.12 = gallery ordered by decoded image size (largest = the FULL product first), then plan order; the helper's `seen` text names the PNG file only (live/replay parity).
 
 | File | Role |
 | --- | --- |

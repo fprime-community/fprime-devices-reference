@@ -337,7 +337,7 @@ def decode_image_in_window(ctx, slot, image_mode, resolution, width, height, lin
             if out_path is None:
                 out_path = Path("dev-evidence") / "images" / str(out)
             write_png(out_path, img_w, img_h, rows)
-            seen += f"; PNG -> {out_path}"
+            seen += f"; PNG -> {out_path.name}"  # name only: the run path differs live vs replay (parity)
             if expect == "pattern_kat":
                 kat, kat_seen = test_pattern_kat(rows, img_w, img_h)
                 seen += f"; pattern KAT: {kat_seen}"
