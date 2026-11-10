@@ -1,11 +1,11 @@
 # SunCamRef system test (plan QUAL-SUNCAM, KissCam.SunCamMgr)
 
-Harness: [fprime-testing-harness](https://github.com/LeStarch/fprime-testing-harness) v0.1.14 (`fth`).
+Harness: [fprime-testing-harness](https://github.com/LeStarch/fprime-testing-harness) v0.1.15 (`fth`).
 
-Pin (campaign fvp-2026-11-07-1): tag `v0.1.14` = tag object `31e2fb0c246b872dd6524ea71007c77160a359c6` on commit
-`919be3a9bc682d42c3461ce1de05fc54fc3cee84`, fetched from the autobot fork
+Pin (campaign fvp-2026-11-07-1): tag `v0.1.15` = tag object `ce0d48a8c6ee96014b109233d1083199e87d4d70` on commit
+`1fe17a894de6bce4321b0513db4570f8cf25643f`, fetched from the autobot fork
 `https://github.com/lestarch-autobot/fprime-testing-harness` until it lands upstream:
-`git -C harness fetch --tags https://github.com/lestarch-autobot/fprime-testing-harness && git -C harness checkout --detach v0.1.14 && pip install -e "harness[test]"`.
+`git -C harness fetch --tags https://github.com/lestarch-autobot/fprime-testing-harness && git -C harness checkout --detach v0.1.15 && pip install -e "harness[test]"`.
 v0.1.3 = window-slice fix (dispatchers that log `OpCodeDispatched` before the handler event); v0.1.4 = human-step, run-for-record-only tests
 (`human_step` / `run_in`, verdict DEFERRED); v0.1.5 = positional `human step` procedure line → `bench.human_step()` and
 `fth rfr --defer-human-steps RULING`. The deployment logs the same string at start-up (`HARNESS_DESCRIBE`, read by `fth manifest`).
@@ -18,6 +18,7 @@ v0.1.11 = helper artifacts: `decode_image_in_window` writes its PNG via `ctx.art
 v0.1.12 = gallery ordered by decoded image size (largest = the FULL product first), then plan order; the helper's `seen` text names the PNG file only (live/replay parity).
 v0.1.13 = artifact sidecar `<name>.json` (helper-declared caption, raw-mosaic min/max/mean + 256-bin histogram, optional `rgb` companion) rendered beside the image on the gallery and test page; the deployment helper writes it and a pure-Python bilinear Bayer GR→RGB demosaic (`L2-5-full-rgb.png`, no white balance) of the FULL real-scene product (Captain ruling: dark real scene stated by program; the ramp KAT previews stay grey).
 v0.1.14 = harness fixes found by the dry-12 dev-campaign audit (no stimulus change): `fth audit` re-exports the record with the bench's `boot_event` exactly as `fth run` exported it; a test DEFERRED by the plugin records its `@pytest.mark.req` markers (`fth_req`) for the audit's marker comparison; `dev-campaign --ut-project` creates `ut/` before writing `ut-check.log`.
+v0.1.15 = run-start markers are read as the plan's `markers.event`/`markers.arg` (`cmdDisp.NoOpStringReceived`; the auditor only knew `*.Marker` and refused RfR r1178a5f at row 5 although the markers were in the record); `fth dev-campaign` records the dry record's audit steps in `evidence.json` (`pure.audit`) and, like `fth deliver`, fails on any FAILED step or on a missing runner-vs-replay agreement.
 
 | File | Role |
 | --- | --- |
