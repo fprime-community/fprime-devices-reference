@@ -75,7 +75,7 @@
    "lines_min": 95
   },
   "system": {
-   "lines_min": 75
+   "lines_min": 65
   },
   "not_covered_ack": [
    "REQ-004/016/018 timeout and failed-step paths: the bench camera answers and cannot be silenced (no power control); unit tests cover them",
@@ -86,9 +86,10 @@
    "REQ-029 queue-full hooks: unreachable at 10 Hz / 115200 baud without a flood tool; unit tests",
    "REQ-030 exact tick period: unit test; the quiet windows L0-1/L0-2 prove the periodic write on hardware",
    "REQ-011 camera-refused push: not reachable now that EXPOSURE is range-checked locally; unit tests",
-   "HD FULL download: four slots of the SD FULL shape (L2-5), the bench exercises the HD PREVIEW four-quadrant product (L2-10); ZOOM not run on the bench; Memory Status and camera-side parameter errors are not available on this hardware (SDD §Hardware notes); rejected HD slot (REQ-035) unit-tested only"
+   "HD FULL download: four slots of the SD FULL shape (L2-5), the bench exercises the HD PREVIEW four-quadrant product (L2-10); ZOOM not run on the bench; Memory Status and camera-side parameter errors are not available on this hardware (SDD §Hardware notes); rejected HD slot (REQ-035) unit-tested only",
+   "REQ-017 second DOWNLOAD_ABORT while an abort is pending (BUSY): window is one line exchange (≤ ~75 ms; 2–33 ms observed), bench command spacing ≥ 0.6 s; unit-tested"
   ],
-  "rationale": "UT baseline 95: the host build forces every error branch; on-target 75: camera-side faults (timeout, 0xFF on most commands, send failure) cannot be forced without power control or a fault injector."
+  "rationale": "UT baseline 95: the host build forces every error branch; on-target floor 65 reflects the not_covered_ack list: camera-side faults (timeout, 0xFF on most commands, send failure, stray/power-on bytes, queue overflow) cannot be forced on this bench without power control or a fault injector, so the reachable on-target maximum is about 68 % of SunCamMgr.cpp lines."
  },
  "image_version": {
   "policy": "required",
