@@ -15,5 +15,6 @@ def test_GC_1(fth_plan, window, check, require, send, bench):
         check('event covDump.CoverageDumpDone count == 1')
         check('event covDump.CoverageObject count >= 1')
         check('event covDump.CoverageChunk count >= 1')
+        check('event covDump.CoverageChunk(object=0, offset=0) count == 1')
         check('ABS')
         send("covDump.DUMP_COVERAGE", [0, 0])  # the response follows the last chunk (paced 4 per 10 Hz tick)
