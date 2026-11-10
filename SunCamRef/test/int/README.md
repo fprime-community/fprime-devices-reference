@@ -46,6 +46,35 @@ fth audit --tests dry-1                                                         
 
 The DpWriter directory is `<rundir>/DpCat` (`bench.json` `vars.rundir`); `dump` copies it into `record/raw/dp/`, where `decode_image_in_window` reads the Image products and writes `dev-evidence/images/<test>.png` (relative to the campaign root).
 
+## Coverage (development evidence, harness skill §3a)
+
+The RfR runs the pure image; the coverage *reports* are RfR inputs (`fth deliver --ut-coverage --system-coverage
+--dev-evidence`). They come from `fth dev-campaign`, which needs three things this directory provides:
+
+- **UT coverage**: a default-config UT project beside the campaign root (`utproj/settings.ini`: `framework_path`
+  and `library_locations` pointing into the pinned `uut/lib/*` trees, framework/autocoder UTs off);
+  `fth dev-campaign --ut-project utproj` runs `fprime-util check --coverage` there (gcovr).
+- **On-target coverage**: the deployment built with `-DSUNCAMREF_COVERAGE=ON` (root `CMakeLists.txt`, separate
+  build cache: `fprime-util generate --build-cache uut/build-cov -DSUNCAMREF_COVERAGE=ON && fprime-util build
+  --build-cache uut/build-cov`) instruments `SunCamMgr.cpp` only (`-fprofile-filter-files`). The main plan runs
+  on that image, then the one-test dump plan `gcov-dump/` on the same image: `SunCamRef.CovDump`'s
+  `DUMP_COVERAGE(0, 0)` flushes the hosted libgcov counters (`__gcov_dump`; every earlier process life — the L3-1
+  reset, the flash before the dump run — wrote its `.gcda` at exit, libgcov merges them) and streams the files as
+  `CoverageChunk` / `CoverageObject` / `CoverageDumpDone` events, 4 chunks per 10 Hz tick, the command response
+  after the last chunk. `fth coverage-system --record <dump run>/record --gcno-root uut/build-cov --project-root
+  uut --filter lib/fprime-devices/fprime-devices/KissCam/Components/SunCamMgr/ --gcov gcov` places the bytes
+  beside the `.gcno` (object matched by the CRC-32 of the `.gcda` path) and runs gcovr. Delete stale `*.gcda`
+  under the cache before the plan run. The instrumented image is never the RfR image; in the pure image the
+  component is present but `DUMP_COVERAGE` reports "no gcda root".
+- **Pure run**: the plan on the RfR image (an ordinary unsealed `fth run`).
+
+`fth dev-campaign --out dev-evidence --plan ... --tests ... --bench ... --ut-project utproj --coverage-run <plan run>
+--coverage-manifest <its manifest> --dump-run <dump run> --dump-manifest <its manifest> --dump-plan gcov-dump/plan.json
+--dump-tests gcov-dump --gcno-root uut/build-cov --project-root uut --filter <SunCamMgr dir> --gcov gcov --pure-run
+<pure run> --pure-manifest <its manifest> --sdd <pinned sdd.md> --dictionary <dict>` exits 0 when every pure verdict is
+PASS, runner == replay, and coverage meets `plan.json` `coverage` (`ut.lines_min` 95, `system.lines_min` 75; uncovered
+lines must be in `not_covered_ack`).
+
 ## Windows and markers
 
 Markers are `cmdDisp.CMD_NO_OP_STRING` / `cmdDisp.NoOpStringReceived` (`Received a NO-OP string=<id>`); the plugin sends the start/end markers of each `with window(start, end)` block; multi-window tests share the edge marker as the plan declares (L2-1, L3-1, L6-1, L6-2).
