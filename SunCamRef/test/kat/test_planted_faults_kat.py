@@ -422,3 +422,55 @@ def test_decode_torn_window_is_unverified(plan, tmp_path, monkeypatch):
     assert (holds, unverified) == (None, True), seen
     assert "markers incomplete" in seen and refs == []
 
+
+
+# ---- v0.1.13 (Captain ruling): sidecar caption/histogram + Bayer GR demosaic ---------------------------------
+def test_demosaic_gr_bilinear_known_mosaic(plan):
+    """GR mosaic (row 0: G R, row 1: B G) with flat per-colour planes G=10, R=200, B=50 → every output pixel
+    (200, 10, 50): the bilinear neighbourhoods reproduce the planes exactly away from and at clamped edges."""
+    g = H(plan, "decode_image_in_window").__globals__
+    rows = [bytes([10, 200] * 3) if y % 2 == 0 else bytes([50, 10] * 3) for y in range(6)]
+    rgb = g["demosaic_gr"](rows, 6, 6)
+    assert all(tuple(rgb[y][3 * x:3 * x + 3]) == (200, 10, 50) for y in range(1, 5) for x in range(1, 5))  # interior
+    assert tuple(rgb[0][0:3]) == (105, 10, 30)  # corner G: the clamped neighbours average with the G sample itself
+    stats, hist = g["pixel_stats"](rows)
+    assert stats == {"min": 10, "max": 200, "mean": 67.5, "count": 36}
+    assert (hist[10], hist[50], hist[200], sum(hist)) == (18, 9, 9, 36)
+
+
+def test_decode_full_real_scene_writes_sidecar_and_rgb_companion(plan, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    ctx = make_ctx(plan, tmp_path, test_id="L2-5")
+    ctx.artifacts_dir = tmp_path / "arts"
+    _dp(ctx, "full.fdp", product(150, 0, 1, 0, 640, 480, 480, pixels_for=lambda s, l: bytes(10 + (l % 6) for _ in range(640))))
+    holds, seen, refs, unverified = H(plan, "decode_image_in_window")(
+        ctx, slot=0, image_mode="SD", resolution="FULL", width=640, height=480, lines=480, expect="none", out="L2-5-full.png")
+    assert (holds, unverified) == (True, False), seen
+    assert "PNG -> L2-5-full.png; raw px min 10 max 15 mean 12.5; RGB -> L2-5-full-rgb.png" in seen
+    g = H(plan, "decode_image_in_window").__globals__
+    side = json.loads((ctx.artifacts_dir / "L2-5-full.png.json").read_text())
+    assert side["caption"] == g["CAPTIONS"]["L2-5-full.png"] and "raw Bayer GR, 8-bit, shown as greyscale" in side["caption"]
+    assert side["decode_note"] == "raw Bayer GR, 8-bit, shown as greyscale"
+    assert "at the printed exposure" in side["caption"] and "672" not in side["caption"]
+    assert (side["width"], side["height"], side["exposure"], side["rgb"], side["source"]) == (640, 480, 672, "L2-5-full-rgb.png", "raw/dp/full.fdp")
+    assert side["pixels"] == {"min": 10, "max": 15, "mean": 12.5, "count": 307200} and sum(side["histogram"]) == 307200
+    assert [i for i, c in enumerate(side["histogram"]) if c] == [10, 11, 12, 13, 14, 15]
+    assert _png_pixels(ctx.artifacts_dir / "L2-5-full.png")[:2] == (640, 480)
+    rgb = (ctx.artifacts_dir / "L2-5-full-rgb.png").read_bytes()
+    assert rgb[:8] == b"\x89PNG\r\n\x1a\n" and rgb[25] == 2  # colour type 2 = RGB
+    assert json.loads((ctx.artifacts_dir / "L2-5-full-rgb.png.json").read_text())["caption"] == g["RGB_CAPTION"]
+    assert "raw/dp/full.fdp" in refs
+
+
+def test_decode_pattern_preview_gets_pattern_caption_and_no_rgb(plan, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    ctx = make_ctx(plan, tmp_path, test_id="L2-10")
+    ctx.artifacts_dir = tmp_path / "arts"
+    _dp(ctx, "hd.fdp", product(150, 0, 3, 1, 128, 96, 192, pixels_for=_hd_preview_ramp))
+    holds, seen, _refs, _u = H(plan, "decode_image_in_window")(ctx, **dict(HD_ARGS, out="L2-10-hd-preview.png"), expect="pattern_kat")
+    assert holds is True, seen
+    g = H(plan, "decode_image_in_window").__globals__
+    side = json.loads((ctx.artifacts_dir / "L2-10-hd-preview.png.json").read_text())
+    assert side["caption"] == g["PATTERN_CAPTION"] == "Camera test pattern (ramp KAT, secondary evidence; raw 8-bit shown as greyscale)"
+    assert side["decode_note"] == g["GREY_NOTE"] and "rgb" not in side and "RGB ->" not in seen
+    assert sorted(p.name for p in ctx.artifacts_dir.iterdir()) == ["L2-10-hd-preview.png", "L2-10-hd-preview.png.json"]

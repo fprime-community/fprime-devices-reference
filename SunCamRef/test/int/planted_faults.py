@@ -209,17 +209,75 @@ def parse_product(data):
     return {"id": dp_id, "time_s": sec + usec / 1e6, "header": header, "lines": lines}
 
 
-def write_png(path, width, height, rows):
-    """8-bit greyscale PNG (Bayer samples shown as grey); ``rows`` = list of ``bytes`` of length ``width``."""
+# Captions the quick-look prints beside each decoded image (fth v0.1.13 artifact sidecar; Captain ruling 2026-11-10:
+# the QL states by program what the image is). Keyed by the plan's helper ``out`` name.
+GREY_NOTE = "raw Bayer GR, 8-bit, shown as greyscale"
+CAPTIONS = {
+    "L2-5-full.png": ("Real scene, SD FULL 640×480, test pattern OFF — raw Bayer GR, 8-bit, shown as greyscale (demosaiced copy "
+                      "beside it, no white balance). The sun camera looks at an unlit bench with no bright source at the printed "
+                      "exposure; the frame is dark by design — see the pixel range and histogram."),
+}
+PATTERN_CAPTION = "Camera test pattern (ramp KAT, secondary evidence; raw 8-bit shown as greyscale)"
+RGB_CAPTION = "Bilinear demosaic of the raw Bayer GR mosaic (AR0130, Rev 1.3 §6.4) → RGB, no white balance, no gamma"
+RGB_FOR = {"L2-5-full.png"}  # real-scene FULL products get a demosaiced copy; pattern previews stay grey
+
+
+def write_png(path, width, height, rows, color=False):
+    """8-bit PNG: greyscale (Bayer samples shown as grey) or, with ``color``, RGB; ``rows`` = list of ``bytes`` of
+    length ``width`` (grey) or ``3*width`` (RGB)."""
     raw = b"".join(b"\x00" + bytes(r) for r in rows)
 
     def chunk(tag, body):
         return struct.pack(">I", len(body)) + tag + body + struct.pack(">I", zlib.crc32(tag + body) & 0xFFFFFFFF)
 
-    png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 0, 0, 0, 0))
+    png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2 if color else 0, 0, 0, 0))
     png += chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b"")
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     Path(path).write_bytes(png)
+
+
+def pixel_stats(rows):
+    """min / max / mean and the 256-bin histogram of the raw mosaic samples (pure Python)."""
+    hist = [0] * 256
+    for r in rows:
+        for v in r:
+            hist[v] += 1
+    n = sum(hist)
+    lo = next(i for i, c in enumerate(hist) if c)
+    hi = max(i for i, c in enumerate(hist) if c)
+    mean = sum(i * c for i, c in enumerate(hist)) / n
+    return {"min": lo, "max": hi, "mean": round(mean, 3), "count": n}, hist
+
+
+def demosaic_gr(rows, width, height):
+    """Bilinear demosaic of a Bayer GR mosaic (row 0: G R G R …, row 1: B G B G …; cv2.COLOR_BayerGR2RGB
+    neighbourhoods), no white balance. Pure Python; returns RGB rows (bytes, 3*width)."""
+    def px(x, y):
+        x = min(max(x, 0), width - 1)
+        y = min(max(y, 0), height - 1)
+        return rows[y][x]
+
+    def avg(pts):
+        return sum(pts) // len(pts)
+
+    out = []
+    for y in range(height):
+        line = bytearray()
+        for x in range(width):
+            even_row, even_col = y % 2 == 0, x % 2 == 0
+            if even_row and even_col:  # G on a GR row: R left/right, B up/down
+                r, g, b = avg((px(x - 1, y), px(x + 1, y))), px(x, y), avg((px(x, y - 1), px(x, y + 1)))
+            elif even_row:  # R
+                r, g = px(x, y), avg((px(x - 1, y), px(x + 1, y), px(x, y - 1), px(x, y + 1)))
+                b = avg((px(x - 1, y - 1), px(x + 1, y - 1), px(x - 1, y + 1), px(x + 1, y + 1)))
+            elif even_col:  # B
+                b, g = px(x, y), avg((px(x - 1, y), px(x + 1, y), px(x, y - 1), px(x, y + 1)))
+                r = avg((px(x - 1, y - 1), px(x + 1, y - 1), px(x - 1, y + 1), px(x + 1, y + 1)))
+            else:  # G on a BG row: B left/right, R up/down
+                b, g, r = avg((px(x - 1, y), px(x + 1, y))), px(x, y), avg((px(x, y - 1), px(x, y + 1)))
+            line += bytes((r, g, b))
+        out.append(bytes(line))
+    return out
 
 
 def assemble(header, lines):
@@ -337,7 +395,19 @@ def decode_image_in_window(ctx, slot, image_mode, resolution, width, height, lin
             if out_path is None:
                 out_path = Path("dev-evidence") / "images" / str(out)
             write_png(out_path, img_w, img_h, rows)
-            seen += f"; PNG -> {out_path.name}"  # name only: the run path differs live vs replay (parity)
+            stats, hist = pixel_stats(rows)
+            seen += f"; PNG -> {out_path.name}; raw px min {stats['min']} max {stats['max']} mean {stats['mean']}"  # names/stats only: live == replay
+            if hasattr(ctx, "artifact") and ctx.artifact(str(out)) is not None:  # fth v0.1.11+: sidecar + demosaic
+                side = {"caption": CAPTIONS.get(str(out), PATTERN_CAPTION), "decode_note": GREY_NOTE,
+                        "source": f"raw/dp/{f.name}", "width": img_w, "height": img_h,
+                        "exposure": hdr.get("exposure"), "pixels": stats, "histogram": hist}
+                if str(out) in RGB_FOR:
+                    rgb_name = str(out).rsplit(".", 1)[0] + "-rgb.png"
+                    write_png(ctx.artifact(rgb_name), img_w, img_h, demosaic_gr(rows, img_w, img_h), color=True)
+                    side["rgb"] = rgb_name
+                    ctx.artifact(rgb_name + ".json").write_text(json.dumps({"caption": RGB_CAPTION, "source": side["source"], "width": img_w, "height": img_h, "exposure": hdr.get("exposure"), "grey": str(out)}, indent=1) + "\n", encoding="utf-8")
+                    seen += f"; RGB -> {rgb_name}"
+                ctx.artifact(str(out) + ".json").write_text(json.dumps(side, indent=1) + "\n", encoding="utf-8")
             if expect == "pattern_kat":
                 kat, kat_seen = test_pattern_kat(rows, img_w, img_h)
                 seen += f"; pattern KAT: {kat_seen}"
