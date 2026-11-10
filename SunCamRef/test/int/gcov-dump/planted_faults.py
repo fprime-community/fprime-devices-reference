@@ -16,3 +16,14 @@ def partial_dump_first(test_id, command_name, args):
     if test_id == "GC-1" and _is(command_name, "DUMP_COVERAGE") and list(args) == [0, 0]:
         return [("covDump.DUMP_COVERAGE", [0, 1]), (command_name, args)]
     return None
+
+
+@planted_fault("valid_range_instead", applies_to=["GC-2"], cls="stimulus", kind="rewrite",
+               mechanism="DUMP_COVERAGE(65535, 1) rewritten to (0, 1): the command is accepted and streams one chunk "
+                         "where the negative control expects a rejection",
+               fails={"GC-2": ["event covDump.CoverageDumpError count == 1", "event cmdDisp.OpCodeError count == 1",
+                               "event covDump.CoverageChunk count == 0"]})
+def valid_range_instead(test_id, command_name, args):
+    if test_id == "GC-2" and _is(command_name, "DUMP_COVERAGE") and list(args) == [65535, 1]:
+        return [0, 1]
+    return None

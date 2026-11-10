@@ -65,6 +65,13 @@
    ],
    "verification": "GC-1",
    "note": "The instrumented SunCamRef image streams its gcda bytes completely and consistently (CoverageDumpDone count/bytes/crc agree with the chunks) so fth coverage-system can place them beside the .gcno of the pinned build (harness skill §3a). Development evidence only."
+  },
+  "GC-RANGE": {
+   "tests": [
+    "GC-2"
+   ],
+   "verification": "GC-2",
+   "note": "DUMP_COVERAGE rejects a start index beyond the stream (VALIDATION_ERROR + CoverageDumpError) without emitting chunks — negative control of the dump path. Development evidence only."
   }
  },
  "tests": [
@@ -101,6 +108,41 @@
    "rationale": [],
    "knobs": [
     "partial_dump_first"
+   ]
+  },
+  {
+   "id": "GC-2",
+   "title": "gcov dump range check (negative control)",
+   "purpose": "A start index beyond the gcda stream is rejected and streams nothing",
+   "covers": [
+    "GC-RANGE"
+   ],
+   "setup": "After GC-1 on the same instrumented image.",
+   "windows": [
+    {
+     "name": "W",
+     "start_id": 910,
+     "end_id": 911,
+     "reset": false
+    }
+   ],
+   "procedure": [
+    "MARK(910)",
+    "covDump.DUMP_COVERAGE(65535, 1)",
+    "wait(covDump.CoverageDumpError or covDump.CoverageChunk, 5 s)",
+    "MARK(911)"
+   ],
+   "checks": [
+    "STD",
+    "event covDump.CoverageDumpError count == 1",
+    "event cmdDisp.OpCodeError count == 1",
+    "event covDump.CoverageDumpDone count == 0",
+    "event covDump.CoverageChunk count == 0"
+   ],
+   "metrics": [],
+   "rationale": [],
+   "knobs": [
+    "valid_range_instead"
    ]
   }
  ],
