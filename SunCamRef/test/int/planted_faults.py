@@ -332,7 +332,10 @@ def decode_image_in_window(ctx, slot, image_mode, resolution, width, height, lin
         img_w, img_h = hdr["width"], hdr["height"]
         try:
             rows = assemble(hdr, parsed["lines"])
-            out_path = Path("dev-evidence") / "images" / str(out)
+            # fth v0.1.11: into the run's runner/artifacts/<test>/ (shipped by render-ql / package); dev fallback otherwise
+            out_path = ctx.artifact(str(out)) if hasattr(ctx, "artifact") else None
+            if out_path is None:
+                out_path = Path("dev-evidence") / "images" / str(out)
             write_png(out_path, img_w, img_h, rows)
             seen += f"; PNG -> {out_path}"
             if expect == "pattern_kat":
