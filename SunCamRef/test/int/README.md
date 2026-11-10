@@ -57,7 +57,7 @@ The RfR runs the pure image; the coverage *reports* are RfR inputs (`fth deliver
 - **On-target coverage**: the deployment built with `-DSUNCAMREF_COVERAGE=ON` (root `CMakeLists.txt`, separate
   build cache: `fprime-util generate --build-cache uut/build-cov -DSUNCAMREF_COVERAGE=ON && fprime-util build
   --build-cache uut/build-cov`) instruments `SunCamMgr.cpp` only (`-fprofile-filter-files`). The main plan runs
-  on that image, then the one-test dump plan `gcov-dump/` on the same image: `SunCamRef.CovDump`'s
+  on that image, then the one-test dump plan `test/gcov-dump/` (outside the pinned stimulus dir) on the same image: `SunCamRef.CovDump`'s
   `DUMP_COVERAGE(0, 0)` flushes the hosted libgcov counters (`__gcov_dump`; every earlier process life — the L3-1
   reset, the flash before the dump run — wrote its `.gcda` at exit, libgcov merges them) and streams the files as
   `CoverageChunk` / `CoverageObject` / `CoverageDumpDone` events, 4 chunks per 10 Hz tick, the command response
@@ -69,8 +69,8 @@ The RfR runs the pure image; the coverage *reports* are RfR inputs (`fth deliver
 - **Pure run**: the plan on the RfR image (an ordinary unsealed `fth run`).
 
 `fth dev-campaign --out dev-evidence --plan ... --tests ... --bench ... --ut-project utproj --coverage-run <plan run>
---coverage-manifest <its manifest> --dump-run <dump run> --dump-manifest <its manifest> --dump-plan gcov-dump/plan.json
---dump-tests gcov-dump --gcno-root uut/build-cov --project-root uut --filter <SunCamMgr dir> --gcov gcov --pure-run
+--coverage-manifest <its manifest> --dump-run <dump run> --dump-manifest <its manifest> --dump-plan test/gcov-dump/plan.json
+--dump-tests test/gcov-dump --gcno-root uut/build-cov --project-root uut --filter <SunCamMgr dir> --gcov gcov --pure-run
 <pure run> --pure-manifest <its manifest> --sdd <pinned sdd.md> --dictionary <dict>` exits 0 when every pure verdict is
 PASS, runner == replay, and coverage meets `plan.json` `coverage` (`ut.lines_min` 95, `system.lines_min` 75; uncovered
 lines must be in `not_covered_ack`).

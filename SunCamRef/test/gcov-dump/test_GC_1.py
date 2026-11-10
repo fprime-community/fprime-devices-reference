@@ -1,6 +1,6 @@
 """GC-1: gcov dump of the instrumented image
 
-Procedure (gcov-dump/plan.json, verbatim order):
+Procedure (test/gcov-dump/plan.json, verbatim order):
   MARK(900)
   covDump.DUMP_COVERAGE(0, 0)
   MARK(901)

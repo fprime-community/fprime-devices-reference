@@ -1,6 +1,6 @@
 """GC-2: gcov dump range check (negative control)
 
-Procedure (gcov-dump/plan.json, verbatim order):
+Procedure (test/gcov-dump/plan.json, verbatim order):
   MARK(910)
   covDump.DUMP_COVERAGE(65535, 1)
   wait(covDump.CoverageDumpError or covDump.CoverageChunk, 5 s)
