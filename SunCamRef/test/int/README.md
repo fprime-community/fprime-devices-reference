@@ -75,7 +75,7 @@ The RfR runs the pure image; the coverage *reports* are RfR inputs (`fth deliver
 --coverage-manifest <its manifest> --dump-run <dump run> --dump-manifest <its manifest> --dump-plan test/gcov-dump/plan.json
 --dump-tests test/gcov-dump --gcno-root uut/build-cov --project-root uut --filter <SunCamMgr dir> --gcov gcov --pure-run
 <pure run> --pure-manifest <its manifest> --sdd <pinned sdd.md> --dictionary <dict>` exits 0 when every pure verdict is
-PASS, runner == replay, and coverage meets `plan.json` `coverage` (`ut.lines_min` 95, `system.lines_min` 75; uncovered
+PASS, runner == replay, and coverage meets `plan.json` `coverage` (`ut.lines_min` 95, `system.lines_min` 65; uncovered
 lines must be in `not_covered_ack`).
 
 ## Windows and markers
