@@ -28,6 +28,7 @@ module SunCamRef {
     instance uartDriver
     instance uartBufferManager
     instance sunCamMgr
+    instance covDump
 
     # ----------------------------------------------------------------------
     # Pattern graph specifiers
@@ -67,6 +68,7 @@ module SunCamRef {
       rateGroup2.RateGroupMemberOut[1] -> uartDriver.run
       rateGroup2.RateGroupMemberOut[2] -> uartBufferManager.schedIn
       rateGroup2.RateGroupMemberOut[3] -> systemResources.run
+      rateGroup2.RateGroupMemberOut[4] -> covDump.run
     }
 
     connections Communications {

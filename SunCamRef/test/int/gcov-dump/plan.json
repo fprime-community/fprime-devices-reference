@@ -1,0 +1,103 @@
+{
+ "name": "QUAL-SUNCAM gcov dump — development-only coverage dump of the instrumented SunCamRef (fth dev-campaign, harness skill §3a)",
+ "uut": "KissCam.SunCamMgr (fprime-community/fprime-devices, fprime-devices/KissCam)",
+ "deployment": "SunCamRef (fprime-community/fprime-devices-reference), Linux aarch64 on the Pi 5 bench host, KissCAM V2 on /dev/ttyUSB0 (FTDI USB-RS422 FTAQMGVF), fprime-gds over TCP on the Pi",
+ "markers": {
+  "command": "cmdDisp.CMD_NO_OP_STRING",
+  "event": "cmdDisp.NoOpStringReceived",
+  "arg": "id",
+  "reserved_min": 4294901760
+ },
+ "event_patterns": {
+  "cmdDisp.NoOpStringReceived": "Received a NO-OP string=(?P<id>\\d+)$"
+ },
+ "std_complete": [
+  "both markers present",
+  "commands_sent == count(event cmdDisp.OpCodeDispatched)",
+  "event cmdDisp.TooManyCommands count == 0"
+ ],
+ "image_version": {
+  "policy": "required",
+  "reason": "SunCamRef includes Svc.Version; L0-1 compares the FrameworkVersion/ProjectVersion/LibraryVersions payloads with the manifest describe strings (helper version_matches_manifest)"
+ },
+ "l0": "L0: marker format as the main plan; CovDump event formats are the fth coverage-system contract (fth/system_coverage.py)",
+ "packets": {},
+ "abs": {
+  "ABS": [
+   "event covDump.CoverageDumpError count == 0",
+   "event cmdDisp.OpCodeError count == 0"
+  ]
+ },
+ "coverage": {
+  "ut": {
+   "lines_min": 95
+  },
+  "system": {
+   "lines_min": 75
+  },
+  "not_covered_ack": [
+   "REQ-004/016/018 timeout and failed-step paths: the bench camera answers and cannot be silenced (no power control); unit tests cover them",
+   "REQ-020 stray/malformed/late frames and the power-on line (SDD §Hardware notes, Power-on line; 21 unframed bytes): no second writer on the bus and a camera power cycle is performed only by the human on request; unit tests cover them (testMalformedAndStrayFrames, testPowerOnBanner)",
+   "REQ-021 mode mismatch while READY: needs a camera power-cycle; unit test",
+   "REQ-024 UART send failure and product allocation failure: not plantable without breaking the deployment; unit tests",
+   "REQ-028 exposure readback mismatch: the camera reads back what it stores; unit test",
+   "REQ-029 queue-full hooks: unreachable at 10 Hz / 115200 baud without a flood tool; unit tests",
+   "REQ-030 exact tick period: unit test; the quiet windows L0-1/L0-2 prove the periodic write on hardware",
+   "REQ-011 camera-refused push: not reachable now that EXPOSURE is range-checked locally; unit tests",
+   "HD FULL download: four slots of the SD FULL shape (L2-5), the bench exercises the HD PREVIEW four-quadrant product (L2-10); ZOOM not run on the bench; Memory Status and camera-side parameter errors are not available on this hardware (SDD §Hardware notes); rejected HD slot (REQ-035) unit-tested only"
+  ],
+  "rationale": "UT baseline 95: the host build forces every error branch; on-target 75: camera-side faults (timeout, 0xFF on most commands, send failure) cannot be forced without power control or a fault injector."
+ },
+ "scope": [
+  "- Dump plan run right after the main plan on the SAME gcov-instrumented image (fth flashes the same image; the hosted libgcov wrote the .gcda of every process life at exit, DUMP_COVERAGE merges the live counters and streams the files).",
+  "- Not an RfR plan: its record is the input of `fth coverage-system`; the RfR verdicts come from the uninstrumented image."
+ ],
+ "levels": [
+  "GC coverage dump (development only)"
+ ],
+ "requirements": {
+  "GC-DUMP": {
+   "tests": [
+    "GC-1"
+   ],
+   "verification": "GC-1",
+   "note": "The instrumented SunCamRef image streams its gcda bytes completely and consistently (CoverageDumpDone count/bytes/crc agree with the chunks) so fth coverage-system can place them beside the .gcno of the pinned build (harness skill §3a). Development evidence only."
+  }
+ },
+ "tests": [
+  {
+   "id": "GC-1",
+   "title": "gcov dump of the instrumented image",
+   "purpose": "Stream every .gcda of KissCam.SunCamMgr to the record for fth coverage-system",
+   "covers": [
+    "GC-DUMP"
+   ],
+   "setup": "Instrumented SunCamRef (-DSUNCAMREF_COVERAGE=ON) flashed by the bench flash script after the main plan ran on the same image; GDS attached.",
+   "windows": [
+    {
+     "name": "W",
+     "start_id": 900,
+     "end_id": 901,
+     "reset": false
+    }
+   ],
+   "procedure": [
+    "MARK(900)",
+    "covDump.DUMP_COVERAGE(0, 0)",
+    "MARK(901)"
+   ],
+   "checks": [
+    "STD",
+    "event covDump.CoverageDumpDone count == 1",
+    "event covDump.CoverageObject count >= 1",
+    "event covDump.CoverageChunk count >= 1",
+    "ABS"
+   ],
+   "metrics": [],
+   "rationale": []
+  }
+ ],
+ "decision_log": [
+  "2026-11-10 — dump plan created for the dev-campaign coverage input (Captain/anchor ruling: all four deliver inputs required); deployment-side only, UUT frozen."
+ ]
+}

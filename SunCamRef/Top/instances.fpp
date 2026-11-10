@@ -31,6 +31,12 @@ module SunCamRef {
     stack size Default.STACK_SIZE \
     priority 30
 
+  @ Development-only gcov dump (fth dev-campaign); emits nothing unless built with -DSUNCAMREF_COVERAGE=ON
+  instance covDump: SunCamRef.CovDump base id 0x20017000 \
+    queue size 10 \
+    stack size Default.STACK_SIZE \
+    priority 20
+
   # ----------------------------------------------------------------------
   # Passive component instances
   # ----------------------------------------------------------------------
