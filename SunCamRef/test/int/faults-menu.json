@@ -1,0 +1,102 @@
+{
+  "max_count": 2,
+  "knobs": [
+    {
+      "name": "expect_wrong_exposure_push",
+      "class": "stimulus",
+      "applies_to": [
+        "L2-6"
+      ],
+      "fails": {
+        "L2-6": [
+          "event sunCamMgr.SettingApplied(setting=EXPOSURE, value=300) count == 1",
+          "event sunCamMgr.ExposureReadback(pushed=300, readback=300) count == 1"
+        ]
+      },
+      "mechanism": "EXPOSURE_PRM_SET(300) rewritten to 301; the checks expect 300 (672 restore untouched)",
+      "kind": "rewrite",
+      "ripples_to": {}
+    },
+    {
+      "name": "expect_wrong_exposure_resetup",
+      "class": "stimulus",
+      "applies_to": [
+        "L2-1"
+      ],
+      "fails": {
+        "L2-1": [
+          "event sunCamMgr.SetupComplete(mode=SD, exposure=300) count == 1",
+          "event sunCamMgr.SettingApplied(setting=EXPOSURE, value=300) count == 2",
+          "event sunCamMgr.ExposureReadback(pushed=300, readback=300) count == 2"
+        ]
+      },
+      "mechanism": "L2-1 W2: EXPOSURE_PRM_SET(300) rewritten to 299 before the re-entrant SETUP_CAMERA; the set-up applies 299 where the checks expect 300 (stateless: the only EXPOSURE_PRM_SET(300) of the test; the 672 restore is untouched)",
+      "kind": "rewrite",
+      "ripples_to": {}
+    },
+    {
+      "name": "preview_instead_of_full",
+      "class": "stimulus",
+      "applies_to": [
+        "L2-5"
+      ],
+      "fails": {
+        "L2-5": [
+          "event sunCamMgr.DownloadStarted(slot=SLOT_0, imageMode=SD, resolution=FULL, lines=480) count == 1",
+          "event sunCamMgr.DownloadComplete(slot=SLOT_0, imageMode=SD, resolution=FULL, lines=480, bytes=307200) count == 1",
+          "delta(sunCamMgr.LinesDownloaded) == 480",
+          "one Image product in window: ImageHeader(slot=0, imageMode=SD, resolution=FULL, width=640, height=480, exposure=672), 480 slot-tagged ImageLine records in order; PNG \u2192 dev-evidence/images/L2-5-full.png",
+          "t(event sunCamMgr.DownloadComplete(slot=SLOT_0, imageMode=SD, resolution=FULL, lines=480, bytes=307200)) - t(sunCamMgr.DOWNLOAD sent) <= 90 s"
+        ]
+      },
+      "mechanism": "DOWNLOAD(SLOT_0, FULL) rewritten to PREVIEW: 48 lines / 3072 bytes arrive where 480 / 307200 are expected (H3)",
+      "kind": "rewrite",
+      "ripples_to": {}
+    },
+    {
+      "name": "read_wrong_register",
+      "class": "stimulus",
+      "applies_to": [
+        "L2-8"
+      ],
+      "fails": {
+        "L2-8": [
+          "event sunCamMgr.RegisterRead(address=3012, value=300) count == 1"
+        ]
+      },
+      "mechanism": "READ_REGISTER(12306) rewritten to READ_REGISTER(12304, fine integration): camera and UUT nominal, the checker still expects register 0x3012 = 300. Classed stimulus (the drive of the operation under test changes); the skill's harness-expectation class fits a rewritten verification step, which this protocol has none of",
+      "kind": "rewrite",
+      "ripples_to": {}
+    },
+    {
+      "name": "sleep_before_final",
+      "class": "uut-state",
+      "applies_to": [
+        "L7-1"
+      ],
+      "fails": {
+        "L7-1": [
+          "event sunCamMgr.CaptureComplete(slot=SLOT_3, testPattern=ON, mode=SD) count == 1",
+          "event sunCamMgr.DownloadComplete(slot=SLOT_3, imageMode=SD, resolution=PREVIEW, lines=48, bytes=3072) count == 1",
+          "event sunCamMgr.CommandRejected count == 0",
+          "delta(sunCamMgr.ImagesCaptured) == 1",
+          "delta(sunCamMgr.ProductsSent) == 1",
+          "last(dpMgr.NumDataProducts) == 2",
+          "last(sunCamMgr.SetupState) == READY",
+          "exactly one Image product in window: ImageHeader(slot=3, imageMode=SD, resolution=PREVIEW, width=64, height=48, exposure=672), 48 lines in order; PNG \u2192 dev-evidence/images/L7-1-final.png",
+          "event cmdDisp.OpCodeError count == 0"
+        ]
+      },
+      "mechanism": "SLEEP inserted before CAPTURE(SLOT_3, ON): the component is NOT_SETUP, CAPTURE/DOWNLOAD are rejected NOT_READY, no product is written in the window",
+      "kind": "insert",
+      "ripples_to": {}
+    }
+  ],
+  "tests_covered": [
+    "L2-1",
+    "L2-5",
+    "L2-6",
+    "L2-8",
+    "L7-1"
+  ]
+}

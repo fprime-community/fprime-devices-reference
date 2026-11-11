@@ -1,0 +1,15 @@
+register_fprime_module(
+  AUTOCODER_INPUTS
+    "${CMAKE_CURRENT_LIST_DIR}/instances.fpp"
+    "${CMAKE_CURRENT_LIST_DIR}/system.fpp"
+    "${CMAKE_CURRENT_LIST_DIR}/topology.fpp"
+  SOURCES
+    "${CMAKE_CURRENT_LIST_DIR}/SunCamRefTopology.cpp"
+  HEADERS
+    "${CMAKE_CURRENT_LIST_DIR}/SunCamRefTopology.hpp"
+    "${CMAKE_CURRENT_LIST_DIR}/SunCamRefTopologyDefs.hpp"
+  DEPENDS
+    SunCamRef_CovDump
+    Fw_Logger
+    Svc_PosixTime
+)

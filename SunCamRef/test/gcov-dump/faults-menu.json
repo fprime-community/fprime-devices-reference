@@ -1,0 +1,41 @@
+{
+  "max_count": 1,
+  "knobs": [
+    {
+      "name": "partial_dump_first",
+      "class": "uut-state",
+      "applies_to": [
+        "GC-1"
+      ],
+      "fails": {
+        "GC-1": [
+          "event covDump.CoverageChunk(object=0, offset=0) count == 1"
+        ]
+      },
+      "mechanism": "DUMP_COVERAGE(0, 1) inserted before DUMP_COVERAGE(0, 0): the first chunk of object 0 is streamed twice (byte-identical, so fth coverage-system still reassembles), the plan's exactly-once check on chunk (object 0, offset 0) fails",
+      "kind": "insert",
+      "ripples_to": {}
+    },
+    {
+      "name": "valid_range_instead",
+      "class": "stimulus",
+      "applies_to": [
+        "GC-2"
+      ],
+      "fails": {
+        "GC-2": [
+          "event covDump.CoverageDumpError count == 1",
+          "event cmdDisp.OpCodeError count == 1",
+          "event covDump.CoverageChunk count == 0"
+        ]
+      },
+      "mechanism": "DUMP_COVERAGE(65535, 1) rewritten to (0, 1): the command is accepted and streams one chunk where the negative control expects a rejection",
+      "kind": "rewrite",
+      "ripples_to": {}
+    }
+  ],
+  "tests_covered": [
+    "GC-1",
+    "GC-2"
+  ]
+}

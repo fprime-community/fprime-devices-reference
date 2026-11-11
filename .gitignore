@@ -4,3 +4,6 @@ build-fprime-automatic-*/
 fprime-venv/
 __pycache__/
 *.pyc
+build-artifacts/
+.venv/
+build-cov/

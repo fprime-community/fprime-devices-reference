@@ -1,0 +1,35 @@
+{
+  "deployment": "SunCamRef",
+  "dictionary": "uut/build-artifacts/Linux/SunCamRef/dict/SunCamRefTopologyDictionary.json",
+  "serial": "FTAQMGVF",
+  "provenance": {
+    "serial_re": "FTDI serial = (\\S+)"
+  },
+  "vars": {
+    "uart": "/dev/serial/by-id/usb-FTDI_USB-RS422_Cable_FTAQMGVF-if00-port0",
+    "baud": "115200",
+    "rundir": "suncamref-run",
+    "gds_host": "127.0.0.1",
+    "gds_port": "50100",
+    "zmq": "ipc:///tmp/suncamref-gds-in ipc:///tmp/suncamref-gds-out",
+    "scripts": "uut/SunCamRef/test/int/bench"
+  },
+  "flash": "bash {scripts}/flash.sh {image} {rundir} {uart} {gds_host} {gds_port}",
+  "dump": "bash {scripts}/dump.sh {readback} {rundir}",
+  "reset": "bash {scripts}/reset.sh {rundir} {uart} {gds_host} {gds_port}",
+  "gds": "bash {scripts}/gds.sh {dictionary} {gds_host} {gds_port} {zmq} {logs} {rundir} {uart}",
+  "recorder": "bash {scripts}/recorder.sh {dictionary} {zmq} {logs}",
+  "send": "bash {scripts}/send.sh {dictionary} {zmq} {logs} {command} {args}",
+  "timeouts": {
+    "flash_s": 120,
+    "gds_start_s": 10,
+    "recorder_start_s": 3,
+    "send_s": 60,
+    "command_s": 90,
+    "reset_settle_s": 5,
+    "collect_s": 30
+  },
+  "notes": "Relative paths only; run from the campaign root on the bench (Raspberry Pi 5 'devin'), uut/ = this repository with submodules, built natively (fprime-util generate && fprime-util build in uut/SunCamRef). flash stops the previous instance by its recorded PID ({rundir}/SunCamRef.pid) and installs {image} as {rundir}/SunCamRef; the gds line starts the new instance (cwd {rundir}: PrmDb.dat and DpCat live there) together with fprime-gds and stops both when fth ends the run (fth requires {uart} to be free between flash and gds), logging install/read-back sha256 to {rundir}/flash.log; the USB serial of the FTDI cable (udevadm ID_SERIAL_SHORT of {uart}) is the bench serial fth records. dump copies the running binary to {readback} and the DpWriter directory {rundir}/DpCat into dp/ beside it (record/raw/dp/). reset restarts by recorded PID and settles >= 3 s. Only /dev/ttyUSB0 (the FTDI RS-422 cable) and the recorded PID are touched; never pkill/pgrep by pattern.",
+  "boot_event": "SunCamRef.uartDriver.PortOpened",
+  "collect": "bash {scripts}/collect.sh {rundir} {logs}"
+}
